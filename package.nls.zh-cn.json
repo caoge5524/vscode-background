@@ -1,0 +1,20 @@
+{
+  "Enable Video Background": "启用视频背景",
+  "Disable Video Background": "禁用视频背景",
+  "Configure": "配置",
+  "Video background enabled! Please restart VSCode to see changes.": "视频背景已启用！请重启 VSCode 以查看更改。",
+  "Video background disabled! Please restart VSCode.": "视频背景已禁用！请重启 VSCode。",
+  "Restart": "重启",
+  "Failed to enable background": "启用背景失败",
+  "Failed to disable background": "禁用背景失败",
+  "Current video files": "当前视频文件",
+  "None": "无",
+  "Select Videos": "选择视频",
+  "Cancel": "取消",
+  "Select Video Files": "选择视频文件",
+  "Video Files": "视频文件",
+  "All Files": "所有文件",
+  "Workbench HTML file not found": "未找到 Workbench HTML 文件",
+  "Original workbench HTML not found": "未找到原始 workbench HTML",
+  "VSCode Background extension activated": "VSCode Background 扩展已激活"
+}

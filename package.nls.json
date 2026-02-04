@@ -1,0 +1,20 @@
+{
+  "Enable Video Background": "Enable Video Background",
+  "Disable Video Background": "Disable Video Background",
+  "Configure": "Configure",
+  "Video background enabled! Please restart VSCode to see changes.": "Video background enabled! Please restart VSCode to see changes.",
+  "Video background disabled! Please restart VSCode.": "Video background disabled! Please restart VSCode.",
+  "Restart": "Restart",
+  "Failed to enable background": "Failed to enable background",
+  "Failed to disable background": "Failed to disable background",
+  "Current video files": "Current video files",
+  "None": "None",
+  "Select Videos": "Select Videos",
+  "Cancel": "Cancel",
+  "Select Video Files": "Select Video Files",
+  "Video Files": "Video Files",
+  "All Files": "All Files",
+  "Workbench HTML file not found": "Workbench HTML file not found",
+  "Original workbench HTML not found": "Original workbench HTML not found",
+  "VSCode Background extension activated": "VSCode Background extension activated"
+}

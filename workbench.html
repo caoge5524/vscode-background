@@ -1,0 +1,288 @@
+<!-- Copyright (C) Microsoft Corporation. All rights reserved. -->
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="Content-Security-Policy"
+        content="
+            default-src
+                'none'
+            ;
+            img-src
+                'self'
+                data:
+                blob:
+                vscode-remote-resource:
+                vscode-managed-remote-resource:
+                https:
+            ;
+            media-src
+                'self' data: blob: *
+                https://*.trae.ai
+                https://*.trae.com.cn
+                https://*.trae.cn
+                'self'
+            ;
+            frame-src
+                'self'
+                vscode-webview:
+            ;
+            script-src
+                'self'
+                'unsafe-eval'
+                'unsafe-inline'
+                blob:
+            ;
+            style-src
+                'self'
+                'unsafe-inline'
+            ;
+            connect-src
+                'self'
+                https:
+                ws:
+            ;
+            font-src
+                'self'
+                vscode-remote-resource:
+                vscode-managed-remote-resource:
+                https://*.vscode-unpkg.net
+            ;
+            require-trusted-types-for
+                'script'
+            ;
+            trusted-types
+                default
+                unsafe-inline
+                amdLoader
+                icubeWebview
+                icubeWebComponent
+                icubeDesktopModules
+                extensionWebComponent
+                lit-html
+                cellRendererEditorText
+                collapsedCellPreview
+                defaultWorkerFactory
+                diffEditorWidget
+                diffReview
+                domLineBreaksComputer
+                dompurify
+                editorGhostText
+                editorViewLayer
+                notebookRenderer
+                stickyScrollViewLayer
+                tokenizeToString
+                lexical
+                notebookChatEditController
+                richScreenReaderContent
+                watermark
+                icubeMarkdownWebview
+                icubeDiffEditorWidget
+                icubeDiffReview
+            ;
+    " />
+
+    <link rel="preload"
+        href="../../../workbench/browser/media/JetBrainsMono-VariableFont_wght.ttf"
+        as="font"
+        type="font/ttf"
+        crossorigin="anonymous">
+    <style>
+        /* Font Families (with CJK support) */
+        @font-face {
+            font-family: "JetBrains Mono";
+            font-style: normal;
+            src: url('../../../workbench/browser/media/JetBrainsMono-VariableFont_wght.ttf') format("truetype");
+            /* ignore: U+2937 ('⤷') */
+            unicode-range: U+0-2936, U+2938-10FFFF;
+        }
+    </style>
+
+    <!-- Workbench CSS -->
+    <link rel="stylesheet"
+        href="../../../workbench/workbench.desktop.main.css">
+</head>
+
+<body aria-label="">
+    <!-- 视频标签：保留循环（视频自身循环播放），3分钟切换视频源 -->
+    <video id="bgVideo" loop autoplay muted playsinline
+        style="position: fixed; inset: 0; width: 100vw; height: 100vh; object-fit: cover; object-position: center; z-index: -100;">
+    </video>
+
+    <script>
+        // 1. 自动识别本文件夹内 bg<i>.mp4（i=1,2,3...）并循环播放
+        // 说明：浏览器环境无法直接“列目录”，因此采用顺序探测 bg1.mp4、bg2.mp4…直到缺失为止。
+        const VIDEO_BASENAME = 'bg';
+        const VIDEO_EXT = 'mp4';
+        const DISCOVERY_MAX = 100; // 保护上限，避免无限探测
+
+        let videoList = [];
+        let currentIndex = 0; // 当前播放的视频索引
+        const videoElement = document.getElementById('bgVideo');
+        const switchInterval = 3 * 60 * 1000; // 切换间隔：3分钟（毫秒）
+        let timer = null; // 定时器实例
+        let switching = false; // 防止切换重入导致的递归/抖动
+
+        function sleep(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
+        }
+
+        // 关键目标：无论任何原因，视频都必须播放（永久静音以规避自动播放策略）。
+        async function ensureVideoPlaying({ retries = 3 } = {}) {
+            for (let attempt = 0; attempt < retries; attempt++) {
+                try {
+                    await videoElement.play();
+                } catch (err) {
+                    // ignore and retry
+                }
+
+                if (!videoElement.paused) return true;
+                await sleep(250 * (attempt + 1));
+            }
+
+            return !videoElement.paused;
+        }
+
+        // 探测资源是否存在：优先 HEAD，不支持则用 Range=0-0 的 GET（更省内存/带宽）
+        async function mediaExists(src) {
+            try {
+                const headResp = await fetch(src, { method: 'HEAD', cache: 'no-store' });
+                return headResp.ok;
+            } catch (_) {
+                // ignore
+            }
+
+            try {
+                const resp = await fetch(src, {
+                    method: 'GET',
+                    cache: 'no-store',
+                    headers: { 'Range': 'bytes=0-0' }
+                });
+                return resp.ok;
+            } catch (_) {
+                return false;
+            }
+        }
+
+        async function discoverVideosInFolder() {
+            const discovered = [];
+            for (let i = 1; i <= DISCOVERY_MAX; i++) {
+                const src = `./${VIDEO_BASENAME}${i}.${VIDEO_EXT}`;
+                // 顺序命名约定：遇到第一个缺失则停止
+                //（若你希望允许跳号，可把这里改成“允许连续缺失N个后停止”）
+                // eslint-disable-next-line no-await-in-loop
+                const exists = await mediaExists(src);
+                if (!exists) break;
+                discovered.push(src);
+            }
+            return discovered;
+        }
+
+        // 播放指定索引的视频（永久静音；切换时尽量释放旧资源以降低运存占用）
+        async function playVideoByIndex(index) {
+            currentIndex = (index + videoList.length) % videoList.length;
+            const src = videoList[currentIndex];
+
+            // 释放上一段资源（部分内核可明显降低内存峰值）
+            try {
+                videoElement.pause();
+                videoElement.removeAttribute('src');
+                videoElement.load();
+            } catch (_) {
+                // ignore
+            }
+
+            // 永久静音：避免自动播放策略导致“有声播放被拦截”
+            videoElement.muted = true;
+            videoElement.volume = 0;
+            videoElement.setAttribute('muted', '');
+
+            videoElement.src = src;
+            videoElement.load();
+
+            const started = await ensureVideoPlaying({ retries: 3 });
+            if (!started) {
+                throw new Error('静音自动播放失败，无法开始播放');
+            }
+        }
+
+        // 2. 初始化：先识别视频列表，再播放第一个
+        async function initVideo() {
+            videoList = await discoverVideosInFolder();
+            if (!videoList.length) {
+                console.error(`未发现可用视频：请确保同目录下存在 ${VIDEO_BASENAME}1.${VIDEO_EXT} 等文件`);
+                return;
+            }
+
+            try {
+                await playVideoByIndex(0);
+            } catch (err) {
+                console.error('初始化播放失败:', err);
+                await switchToNextVideo();
+            }
+        }
+
+        // 3. 切换到下一个视频（避免递归；失败时最多跳过一轮列表）
+        async function switchToNextVideo() {
+            if (!videoList.length) return;
+            if (switching) return;
+            switching = true;
+
+            try {
+                const startIndex = currentIndex;
+                for (let tries = 0; tries < videoList.length; tries++) {
+                    const nextIndex = (startIndex + 1 + tries) % videoList.length;
+                    try {
+                        // eslint-disable-next-line no-await-in-loop
+                        await playVideoByIndex(nextIndex);
+                        return;
+                    } catch (err) {
+                        console.error('切换视频播放失败:', err);
+                    }
+                }
+            } finally {
+                switching = false;
+            }
+        }
+
+        // 4. 启动定时器：按 switchInterval 切换一次
+        function startSwitchTimer() {
+            // 先清除原有定时器（防止重复）
+            if (timer) clearInterval(timer);
+            // 设置新定时器
+            timer = setInterval(() => {
+                switchToNextVideo();
+            }, switchInterval);
+        }
+
+        // 5. 页面加载完成后初始化
+        window.addEventListener('load', () => {
+            initVideo(); // 初始化播放第一个视频
+            startSwitchTimer(); // 启动3分钟切换定时器
+        });
+
+        // 6. 错误处理：视频加载失败时自动切换
+        videoElement.addEventListener('error', (err) => {
+            console.error('视频加载失败:', err);
+            switchToNextVideo();
+        });
+
+        // 7. 可选：页面隐藏时暂停定时器，显示时恢复（优化性能）
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) {
+                clearInterval(timer); // 页面隐藏时停止切换
+            } else {
+                startSwitchTimer(); // 页面显示时恢复切换
+            }
+        });
+    </script>
+
+    <script src="../scenes/desktop.config.js"></script>
+
+    <!-- Startup (do not modify order of script tags!) -->
+    <script src="./workbench.js"
+        type="module"></script>
+</body>
+
+</html>

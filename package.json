@@ -1,0 +1,102 @@
+{
+  "name": "vscode-background",
+  "displayName": "VSCode Background",
+  "description": "Set video backgrounds (MP4, WebM, OGG) for your VSCode workspace",
+  "version": "0.0.1",
+  "publisher": "your-publisher-name",
+  "author": {
+    "name": "Your Name"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/vscode-background"
+  },
+  "bugs": {
+    "url": "https://github.com/yourusername/vscode-background/issues"
+  },
+  "homepage": "https://github.com/yourusername/vscode-background#readme",
+  "keywords": [
+    "background",
+    "video",
+    "mp4",
+    "theme",
+    "customization",
+    "wallpaper"
+  ],
+  "icon": "images/icon.png",
+  "engines": {
+    "vscode": "^1.108.1"
+  },
+  "categories": [
+    "Themes",
+    "Other"
+  ],
+  "activationEvents": [],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "vscode-background.enable",
+        "title": "VSCode Background: Enable Video Background"
+      },
+      {
+        "command": "vscode-background.disable",
+        "title": "VSCode Background: Disable Video Background"
+      },
+      {
+        "command": "vscode-background.configure",
+        "title": "VSCode Background: Configure"
+      },
+      {
+        "command": "vscode-background.diagnostics",
+        "title": "VSCode Background: Show Diagnostics"
+      }
+    ],
+    "configuration": {
+      "title": "VSCode Background",
+      "properties": {
+        "vscodeBackground.enabled": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable video background"
+        },
+        "vscodeBackground.videoFiles": {
+          "type": "array",
+          "default": [],
+          "description": "List of video file paths to use as background"
+        },
+        "vscodeBackground.switchInterval": {
+          "type": "number",
+          "default": 180000,
+          "description": "Video switch interval in milliseconds (default: 3 minutes)"
+        },
+        "vscodeBackground.opacity": {
+          "type": "number",
+          "default": 0.3,
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Video background opacity (0-1)"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "npm run compile && npm run lint",
+    "lint": "eslint src",
+    "test": "vscode-test"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.108.1",
+    "@types/mocha": "^10.0.10",
+    "@types/node": "22.x",
+    "typescript-eslint": "^8.52.0",
+    "eslint": "^9.39.2",
+    "typescript": "^5.9.3",
+    "@vscode/test-cli": "^0.0.12",
+    "@vscode/test-electron": "^2.5.2"
+  }
+}
