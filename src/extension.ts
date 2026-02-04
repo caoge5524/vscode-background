@@ -2,17 +2,9 @@ import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
 
-interface BackgroundConfig {
-	enabled: boolean;
-	videoFiles: string[];
-	switchInterval: number;
-	opacity: number;
-}
-
 let workbenchHtmlPath: string = '';
 let workbenchCssPath: string = '';
-let originalWorkbenchHtml: string = '';
-let originalWorkbenchCss: string = '';
+let isBackgroundEnabled: boolean = false;
 
 export function activate(context: vscode.ExtensionContext) {
 	console.log('VSCode Background extension activated');
@@ -30,7 +22,6 @@ export function activate(context: vscode.ExtensionContext) {
 	for (const possiblePath of possibleHtmlPaths) {
 		if (fs.existsSync(possiblePath)) {
 			workbenchHtmlPath = possiblePath;
-			originalWorkbenchHtml = fs.readFileSync(workbenchHtmlPath, 'utf-8');
 			console.log(`Found workbench.html at: ${workbenchHtmlPath}`);
 			break;
 		}
@@ -49,7 +40,6 @@ export function activate(context: vscode.ExtensionContext) {
 	for (const possiblePath of possibleCssPaths) {
 		if (fs.existsSync(possiblePath)) {
 			workbenchCssPath = possiblePath;
-			originalWorkbenchCss = fs.readFileSync(workbenchCssPath, 'utf-8');
 			console.log(`Found workbench.desktop.main.css at: ${workbenchCssPath}`);
 			break;
 		}
@@ -141,7 +131,204 @@ export function activate(context: vscode.ExtensionContext) {
 		vscode.window.showInformationMessage('Diagnostics information shown in output panel');
 	});
 
-	context.subscriptions.push(enableBackground, disableBackground, configureBackground, diagnostics);
+	// 监听配置变化
+	const configWatcher = vscode.workspace.onDidChangeConfiguration(async (e) => {
+		if (e.affectsConfiguration('vscodeBackground')) {
+			const config = vscode.workspace.getConfiguration('vscodeBackground');
+			const enabled = config.get<boolean>('enabled', false);
+			const videoFiles = config.get<string[]>('videoFiles', []);
+
+			// 检查是否有视频文件且背景已启用
+			if (enabled && videoFiles.length > 0) {
+				// 检查是否修改了 opacity 或 switchInterval
+				if (e.affectsConfiguration('vscodeBackground.opacity') ||
+					e.affectsConfiguration('vscodeBackground.switchInterval') ||
+					e.affectsConfiguration('vscodeBackground.videoFiles')) {
+					try {
+						await applyVideoBackground(videoFiles);
+						vscode.window.showInformationMessage(
+							'Background settings updated! Please restart VSCode to see changes.',
+							'Restart'
+						).then(selection => {
+							if (selection === 'Restart') {
+								vscode.commands.executeCommand('workbench.action.reloadWindow');
+							}
+						});
+					} catch (error) {
+						vscode.window.showErrorMessage(`Failed to update background: ${error}`);
+					}
+				}
+				// 检查 enabled 从 false 变为 true
+				if (e.affectsConfiguration('vscodeBackground.enabled') && !isBackgroundEnabled) {
+					try {
+						await applyVideoBackground(videoFiles);
+						vscode.window.showInformationMessage(
+							'Video background enabled! Please restart VSCode to see changes.',
+							'Restart'
+						).then(selection => {
+							if (selection === 'Restart') {
+								vscode.commands.executeCommand('workbench.action.reloadWindow');
+							}
+						});
+					} catch (error) {
+						vscode.window.showErrorMessage(`Failed to enable background: ${error}`);
+					}
+				}
+			} else if (!enabled && isBackgroundEnabled) {
+				// enabled 从 true 变为 false
+				if (e.affectsConfiguration('vscodeBackground.enabled')) {
+					try {
+						await restoreOriginalWorkbench();
+						vscode.window.showInformationMessage(
+							'Video background disabled! Please restart VSCode.',
+							'Restart'
+						).then(selection => {
+							if (selection === 'Restart') {
+								vscode.commands.executeCommand('workbench.action.reloadWindow');
+							}
+						});
+					} catch (error) {
+						vscode.window.showErrorMessage(`Failed to disable background: ${error}`);
+					}
+				}
+			}
+		}
+	});
+
+	// 添加视频命令
+	const addVideos = vscode.commands.registerCommand('vscode-background.addVideos', async () => {
+		try {
+			const options: vscode.OpenDialogOptions = {
+				canSelectMany: true,
+				openLabel: 'Add Video Files',
+				filters: {
+					'Video Files': ['mp4', 'webm', 'ogg'],
+					'All Files': ['*']
+				}
+			};
+
+			const fileUris = await vscode.window.showOpenDialog(options);
+			if (fileUris && fileUris.length > 0) {
+				const config = vscode.workspace.getConfiguration('vscodeBackground');
+				const currentFiles = config.get<string[]>('videoFiles', []);
+				const newFiles = fileUris.map(uri => uri.fsPath);
+
+				// 合并并去重
+				const allFiles = [...currentFiles];
+				for (const file of newFiles) {
+					if (!allFiles.includes(file)) {
+						allFiles.push(file);
+					}
+				}
+
+				await config.update('videoFiles', allFiles, vscode.ConfigurationTarget.Global);
+
+				const fileNames = newFiles.map(f => path.basename(f)).join(', ');
+				vscode.window.showInformationMessage(`Added ${newFiles.length} video(s): ${fileNames}`);
+			}
+		} catch (error) {
+			vscode.window.showErrorMessage(`Failed to add videos: ${error}`);
+		}
+	});
+
+	// 删除视频命令
+	const removeVideo = vscode.commands.registerCommand('vscode-background.removeVideo', async () => {
+		try {
+			const config = vscode.workspace.getConfiguration('vscodeBackground');
+			const currentFiles = config.get<string[]>('videoFiles', []);
+
+			if (currentFiles.length === 0) {
+				vscode.window.showInformationMessage('No videos in the list.');
+				return;
+			}
+
+			// 显示带有原始文件名的选择列表
+			const items = currentFiles.map((filePath, index) => ({
+				label: `${index + 1}. ${path.basename(filePath)}`,
+				description: filePath,
+				filePath: filePath
+			}));
+
+			const selected = await vscode.window.showQuickPick(items, {
+				placeHolder: 'Select a video to remove',
+				canPickMany: true
+			});
+
+			if (selected && selected.length > 0) {
+				const filesToRemove = selected.map(item => item.filePath);
+				const newFiles = currentFiles.filter(f => !filesToRemove.includes(f));
+				await config.update('videoFiles', newFiles, vscode.ConfigurationTarget.Global);
+
+				const removedNames = selected.map(s => path.basename(s.filePath)).join(', ');
+				vscode.window.showInformationMessage(`Removed ${selected.length} video(s): ${removedNames}`);
+			}
+		} catch (error) {
+			vscode.window.showErrorMessage(`Failed to remove video: ${error}`);
+		}
+	});
+
+	// 管理视频命令（显示当前列表并提供操作选项）
+	const manageVideos = vscode.commands.registerCommand('vscode-background.manageVideos', async () => {
+		const config = vscode.workspace.getConfiguration('vscodeBackground');
+		const currentFiles = config.get<string[]>('videoFiles', []);
+
+		if (currentFiles.length === 0) {
+			const action = await vscode.window.showInformationMessage(
+				'No videos configured. Would you like to add some?',
+				'Add Videos',
+				'Cancel'
+			);
+			if (action === 'Add Videos') {
+				vscode.commands.executeCommand('vscode-background.addVideos');
+			}
+			return;
+		}
+
+		// 显示当前视频列表
+		let message = 'Current video playlist (play order):\n\n';
+		currentFiles.forEach((filePath, index) => {
+			message += `${index + 1}. ${path.basename(filePath)}\n`;
+		});
+
+		const action = await vscode.window.showInformationMessage(
+			`${currentFiles.length} video(s) in playlist`,
+			'Add Videos',
+			'Remove Videos',
+			'View List'
+		);
+
+		if (action === 'Add Videos') {
+			vscode.commands.executeCommand('vscode-background.addVideos');
+		} else if (action === 'Remove Videos') {
+			vscode.commands.executeCommand('vscode-background.removeVideo');
+		} else if (action === 'View List') {
+			// 在输出面板显示完整列表
+			const outputChannel = vscode.window.createOutputChannel('VSCode Background - Video List');
+			outputChannel.clear();
+			outputChannel.appendLine('=== Video Background Playlist ===\n');
+			outputChannel.appendLine('Videos are played in order from top to bottom:\n');
+			currentFiles.forEach((filePath, index) => {
+				outputChannel.appendLine(`${index + 1}. ${path.basename(filePath)}`);
+				outputChannel.appendLine(`   Path: ${filePath}\n`);
+			});
+			outputChannel.show();
+		}
+	});
+
+	// 启动时检查是否已启用背景
+	const config = vscode.workspace.getConfiguration('vscodeBackground');
+	isBackgroundEnabled = config.get<boolean>('enabled', false);
+
+	context.subscriptions.push(
+		enableBackground,
+		disableBackground,
+		configureBackground,
+		diagnostics,
+		configWatcher,
+		addVideos,
+		removeVideo,
+		manageVideos
+	);
 }
 
 async function selectVideoFiles(): Promise<string[] | undefined> {
@@ -252,49 +439,52 @@ async function applyVideoBackground(videoFiles: string[]): Promise<void> {
 
 	// Modify CSS to make workbench transparent
 	if (workbenchCssPath && fs.existsSync(workbenchCssPath)) {
-		let workbenchCss = originalWorkbenchCss || fs.readFileSync(workbenchCssPath, 'utf-8');
-		console.log('Original CSS length:', workbenchCss.length);
+		// Always read fresh CSS from disk
+		let workbenchCss = fs.readFileSync(workbenchCssPath, 'utf-8');
+		console.log('Current CSS length:', workbenchCss.length);
 
-		// Remove any existing opacity rules
+		// Remove any existing opacity rules (both old and new format)
 		workbenchCss = workbenchCss.replace(/\/\* VSCode Background Extension - START \*\/[\s\S]*?\/\* VSCode Background Extension - END \*\/\n?/g, '');
-		// Also remove old format
 		workbenchCss = workbenchCss.replace(/\/\* VSCode Background Extension \*\/[\s\S]*?\.monaco-workbench[^}]*\}[^/]*\.monaco-workbench > \.part[^}]*\}\n?/g, '');
+		// Also remove simple opacity rule if exists
+		workbenchCss = workbenchCss.replace(/\.monaco-workbench\s*\{[^}]*opacity[^}]*\}\n?/g, '');
 
 		// Add comprehensive transparency rules for video background visibility
 		const opacityRule = `
-			/* VSCode Background Extension - START */
-			html, body {
-				background: transparent !important;
-			}
-			.monaco-workbench {
-				background: transparent !important;
-				background-color: transparent !important;
-			}
-			.monaco-workbench > .part {
-				background: transparent !important;
-				background-color: rgba(30, 30, 30, ${opacity}) !important;
-			}
-			.monaco-workbench .part.editor > .content {
-				background: transparent !important;
-			}
-			.monaco-workbench .editor-group-container {
-				background: transparent !important;
-			}
-			.monaco-workbench .split-view-view {
-				background: transparent !important;
-			}
-			.monaco-editor, .monaco-editor-background {
-				background: transparent !important;
-				background-color: rgba(30, 30, 30, ${opacity}) !important;
-			}
-			.monaco-editor .margin {
-				background: transparent !important;
-			}
-			.monaco-editor .monaco-editor-background {
-				background: transparent !important;
-			}
-			/* VSCode Background Extension - END */
-			`;
+		/* VSCode Background Extension - START */
+					html, body {
+						background: transparent !important;
+					}
+					.monaco-workbench {
+						background: transparent !important;
+						background-color: transparent !important;
+					}
+					.monaco-workbench > .part {
+						background: transparent !important;
+						background-color: rgba(30, 30, 30, ${opacity}) !important;
+					}
+					.monaco-workbench .part.editor > .content {
+						background: transparent !important;
+					}
+					.monaco-workbench .editor-group-container {
+						background: transparent !important;
+					}
+					.monaco-workbench .split-view-view {
+						background: transparent !important;
+					}
+					.monaco-editor, .monaco-editor-background {
+						background: transparent !important;
+						background-color: rgba(30, 30, 30, ${opacity}) !important;
+					}
+					.monaco-editor .margin {
+						background: transparent !important;
+					}
+					.monaco-editor .monaco-editor-background {
+						background: transparent !important;
+					.monaco-workbench{opacity: ${opacity} !important;}
+		}
+		/* VSCode Background Extension - END */
+		`;
 		workbenchCss += opacityRule;
 
 		fs.writeFileSync(workbenchCssPath, workbenchCss, 'utf-8');
@@ -306,6 +496,8 @@ async function applyVideoBackground(videoFiles: string[]): Promise<void> {
 
 	// Save configuration
 	await config.update('videoFiles', videoFiles, vscode.ConfigurationTarget.Global);
+	await config.update('enabled', true, vscode.ConfigurationTarget.Global);
+	isBackgroundEnabled = true;
 
 	console.log('=== applyVideoBackground COMPLETE ===');
 }
@@ -468,31 +660,49 @@ function generateVideoScript(switchInterval: number, opacity: number): string {
 
 async function restoreOriginalWorkbench(): Promise<void> {
 	// Read current HTML and remove injection
-	let workbenchHtml = fs.readFileSync(workbenchHtmlPath, 'utf-8');
+	if (workbenchHtmlPath && fs.existsSync(workbenchHtmlPath)) {
+		let workbenchHtml = fs.readFileSync(workbenchHtmlPath, 'utf-8');
 
-	const bgMarkerStart = '<!-- VSCODE-BACKGROUND-START -->';
-	const bgMarkerEnd = '<!-- VSCODE-BACKGROUND-END -->';
+		const bgMarkerStart = '<!-- VSCODE-BACKGROUND-START -->';
+		const bgMarkerEnd = '<!-- VSCODE-BACKGROUND-END -->';
 
-	if (workbenchHtml.includes(bgMarkerStart)) {
-		console.log('Removing background injection...');
-		const regex = new RegExp(`${bgMarkerStart}[\\s\\S]*?${bgMarkerEnd}\\n?`, 'g');
-		workbenchHtml = workbenchHtml.replace(regex, '');
-		fs.writeFileSync(workbenchHtmlPath, workbenchHtml, 'utf-8');
-		console.log('Removed background injection from HTML');
+		if (workbenchHtml.includes(bgMarkerStart)) {
+			console.log('Removing background injection...');
+			const regex = new RegExp(`${bgMarkerStart}[\\s\\S]*?${bgMarkerEnd}\\n?`, 'g');
+			workbenchHtml = workbenchHtml.replace(regex, '');
+			fs.writeFileSync(workbenchHtmlPath, workbenchHtml, 'utf-8');
+			console.log('Removed background injection from HTML');
+		}
 	}
 
-	// Restore CSS
-	if (originalWorkbenchCss && workbenchCssPath) {
-		fs.writeFileSync(workbenchCssPath, originalWorkbenchCss, 'utf-8');
-		console.log('Restored original CSS');
+	// Restore CSS by removing our injected rules
+	if (workbenchCssPath && fs.existsSync(workbenchCssPath)) {
+		let workbenchCss = fs.readFileSync(workbenchCssPath, 'utf-8');
+
+		// Remove our CSS rules using markers
+		workbenchCss = workbenchCss.replace(/\/\* VSCode Background Extension - START \*\/[\s\S]*?\/\* VSCode Background Extension - END \*\/\n?/g, '');
+		// Also remove old format if exists
+		workbenchCss = workbenchCss.replace(/\/\* VSCode Background Extension \*\/[\s\S]*?\.monaco-workbench[^}]*\}[^/]*\.monaco-workbench > \.part[^}]*\}\n?/g, '');
+		// Also remove simple opacity rule if exists
+		workbenchCss = workbenchCss.replace(/\.monaco-workbench\s*\{[^}]*opacity[^}]*!important[^}]*\}\n?/g, '');
+
+		fs.writeFileSync(workbenchCssPath, workbenchCss, 'utf-8');
+		console.log('Removed CSS rules from workbench CSS');
 	}
 
 	// Clean up video files
-	const videoDirPath = path.join(path.dirname(workbenchHtmlPath), 'background-videos');
-	if (fs.existsSync(videoDirPath)) {
-		fs.rmSync(videoDirPath, { recursive: true, force: true });
-		console.log('Cleaned up video directory');
+	if (workbenchHtmlPath) {
+		const videoDirPath = path.join(path.dirname(workbenchHtmlPath), 'background-videos');
+		if (fs.existsSync(videoDirPath)) {
+			fs.rmSync(videoDirPath, { recursive: true, force: true });
+			console.log('Cleaned up video directory');
+		}
 	}
+
+	// Update configuration
+	const config = vscode.workspace.getConfiguration('vscodeBackground');
+	await config.update('enabled', false, vscode.ConfigurationTarget.Global);
+	isBackgroundEnabled = false;
 }
 
 export function deactivate() {

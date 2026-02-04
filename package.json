@@ -51,6 +51,18 @@
       {
         "command": "vscode-background.diagnostics",
         "title": "VSCode Background: Show Diagnostics"
+      },
+      {
+        "command": "vscode-background.addVideos",
+        "title": "VSCode Background: Add Videos"
+      },
+      {
+        "command": "vscode-background.removeVideo",
+        "title": "VSCode Background: Remove Video"
+      },
+      {
+        "command": "vscode-background.manageVideos",
+        "title": "VSCode Background: Manage Videos"
       }
     ],
     "configuration": {
@@ -59,24 +71,31 @@
         "vscodeBackground.enabled": {
           "type": "boolean",
           "default": false,
-          "description": "Enable video background"
+          "description": "Enable video background",
+          "order": 1
         },
         "vscodeBackground.videoFiles": {
           "type": "array",
+          "items": {
+            "type": "string"
+          },
           "default": [],
-          "description": "List of video file paths to use as background"
+          "description": "List of video file paths to use as background (played in order from top to bottom)",
+          "order": 2
         },
         "vscodeBackground.switchInterval": {
           "type": "number",
           "default": 180000,
-          "description": "Video switch interval in milliseconds (default: 3 minutes)"
+          "description": "Video switch interval in milliseconds (default: 3 minutes)",
+          "order": 3
         },
         "vscodeBackground.opacity": {
           "type": "number",
           "default": 0.3,
           "minimum": 0,
           "maximum": 1,
-          "description": "Video background opacity (0-1)"
+          "description": "Video background opacity (0-1)",
+          "order": 4
         }
       }
     }
