@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#1e1e2e;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#313244;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="playGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#89b4fa;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#74c7ec;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  <!-- Background rounded square -->
+  <rect x="4" y="4" width="120" height="120" rx="20" ry="20" fill="url(#bgGrad)"/>
+  <!-- Video frame border -->
+  <rect x="20" y="30" width="88" height="58" rx="6" ry="6" fill="none" stroke="#585b70" stroke-width="3"/>
+  <!-- Play button triangle -->
+  <polygon points="52,45 52,75 78,60" fill="url(#playGrad)"/>
+  <!-- Bottom bar representing video timeline -->
+  <rect x="20" y="94" width="88" height="8" rx="4" ry="4" fill="#45475a"/>
+  <rect x="20" y="94" width="35" height="8" rx="4" ry="4" fill="url(#playGrad)"/>
+</svg>

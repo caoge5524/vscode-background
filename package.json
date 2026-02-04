@@ -2,20 +2,20 @@
   "name": "vscode-background",
   "displayName": "VSCode Background",
   "description": "Set video backgrounds (MP4, WebM, OGG) for your VSCode workspace",
-  "version": "0.0.1",
-  "publisher": "your-publisher-name",
+  "version": "1.0.0",
+  "publisher": "数学的屑",
   "author": {
-    "name": "Your Name"
+    "name": "操歌"
   },
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/yourusername/vscode-background"
+    "url": "https://github.com/caoge5524/vscode-background.git"
   },
   "bugs": {
-    "url": "https://github.com/yourusername/vscode-background/issues"
+    "url": "https://github.com/caoge5524/vscode-background/issues"
   },
-  "homepage": "https://github.com/yourusername/vscode-background#readme",
+  "homepage": "https://github.com/caoge5524/vscode-background#readme",
   "keywords": [
     "background",
     "video",
@@ -90,13 +90,14 @@
     "test": "vscode-test"
   },
   "devDependencies": {
-    "@types/vscode": "^1.108.1",
     "@types/mocha": "^10.0.10",
     "@types/node": "22.x",
-    "typescript-eslint": "^8.52.0",
-    "eslint": "^9.39.2",
-    "typescript": "^5.9.3",
+    "@types/vscode": "^1.108.1",
     "@vscode/test-cli": "^0.0.12",
-    "@vscode/test-electron": "^2.5.2"
+    "@vscode/test-electron": "^2.5.2",
+    "eslint": "^9.39.2",
+    "sharp": "^0.34.5",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.52.0"
   }
 }
