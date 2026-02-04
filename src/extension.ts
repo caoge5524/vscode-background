@@ -216,7 +216,7 @@ async function applyVideoBackground(videoFiles: string[]): Promise<void> {
 	// Remove any existing video background injection
 	const bgMarkerStart = '<!-- VSCODE-BACKGROUND-START -->';
 	const bgMarkerEnd = '<!-- VSCODE-BACKGROUND-END -->';
-	
+
 	if (workbenchHtml.includes(bgMarkerStart)) {
 		console.log('Removing existing background injection...');
 		const regex = new RegExp(`${bgMarkerStart}[\\s\\S]*?${bgMarkerEnd}`, 'g');
@@ -226,6 +226,18 @@ async function applyVideoBackground(videoFiles: string[]): Promise<void> {
 
 	const videoScript = generateVideoScript(switchInterval, opacity);
 	console.log('Generated video script length:', videoScript.length);
+
+	// Modify CSP to allow inline scripts (required for video background script)
+	if (workbenchHtml.includes("script-src")) {
+		// Add 'unsafe-inline' to script-src if not already present
+		if (!workbenchHtml.includes("'unsafe-inline'")) {
+			workbenchHtml = workbenchHtml.replace(
+				/script-src\s*\n\s*'self'/,
+				"script-src\n\t\t\t\t\t'self'\n\t\t\t\t\t'unsafe-inline'"
+			);
+			console.log('Added unsafe-inline to CSP script-src');
+		}
+	}
 
 	if (workbenchHtml.includes('<body')) {
 		const before = workbenchHtml.length;
@@ -244,11 +256,45 @@ async function applyVideoBackground(videoFiles: string[]): Promise<void> {
 		console.log('Original CSS length:', workbenchCss.length);
 
 		// Remove any existing opacity rules
-		workbenchCss = workbenchCss.replace(/\/\* VSCode Background Extension \*\/[\s\S]*?\.monaco-workbench[^}]*\}/g, '');
+		workbenchCss = workbenchCss.replace(/\/\* VSCode Background Extension - START \*\/[\s\S]*?\/\* VSCode Background Extension - END \*\/\n?/g, '');
+		// Also remove old format
+		workbenchCss = workbenchCss.replace(/\/\* VSCode Background Extension \*\/[\s\S]*?\.monaco-workbench[^}]*\}[^/]*\.monaco-workbench > \.part[^}]*\}\n?/g, '');
 
-		// Add background color with transparency instead of opacity
-		const cssOpacity = 1 - opacity;
-		const opacityRule = `\n\n/* VSCode Background Extension */\n.monaco-workbench { background-color: rgba(0, 0, 0, ${opacity}) !important; }\n.monaco-workbench > .part { background: transparent !important; }\n`;
+		// Add comprehensive transparency rules for video background visibility
+		const opacityRule = `
+			/* VSCode Background Extension - START */
+			html, body {
+				background: transparent !important;
+			}
+			.monaco-workbench {
+				background: transparent !important;
+				background-color: transparent !important;
+			}
+			.monaco-workbench > .part {
+				background: transparent !important;
+				background-color: rgba(30, 30, 30, ${opacity}) !important;
+			}
+			.monaco-workbench .part.editor > .content {
+				background: transparent !important;
+			}
+			.monaco-workbench .editor-group-container {
+				background: transparent !important;
+			}
+			.monaco-workbench .split-view-view {
+				background: transparent !important;
+			}
+			.monaco-editor, .monaco-editor-background {
+				background: transparent !important;
+				background-color: rgba(30, 30, 30, ${opacity}) !important;
+			}
+			.monaco-editor .margin {
+				background: transparent !important;
+			}
+			.monaco-editor .monaco-editor-background {
+				background: transparent !important;
+			}
+			/* VSCode Background Extension - END */
+			`;
 		workbenchCss += opacityRule;
 
 		fs.writeFileSync(workbenchCssPath, workbenchCss, 'utf-8');
@@ -423,10 +469,10 @@ function generateVideoScript(switchInterval: number, opacity: number): string {
 async function restoreOriginalWorkbench(): Promise<void> {
 	// Read current HTML and remove injection
 	let workbenchHtml = fs.readFileSync(workbenchHtmlPath, 'utf-8');
-	
+
 	const bgMarkerStart = '<!-- VSCODE-BACKGROUND-START -->';
 	const bgMarkerEnd = '<!-- VSCODE-BACKGROUND-END -->';
-	
+
 	if (workbenchHtml.includes(bgMarkerStart)) {
 		console.log('Removing background injection...');
 		const regex = new RegExp(`${bgMarkerStart}[\\s\\S]*?${bgMarkerEnd}\\n?`, 'g');
