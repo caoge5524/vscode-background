@@ -12,40 +12,60 @@ English | [简体中文](./README.zh-CN.md)
 - **Auto-Discovery**: Automatically detects and plays videos in sequence
 - **Customizable Settings**: Configure opacity, switch interval, and video selection
 - **Easy Enable/Disable**: Simple commands to enable or disable video backgrounds
-- **Permission Tools**: Built-in tools to handle Windows file permission issues
+- **Auto-Apply**: Automatically apply changes when settings are modified (requires Administrator permission once)
+- **Real-time Status**: Display current background status and configuration info
 
 ## Installation
 
 ### First Time Setup (Windows)
 
-Due to Windows file permissions, you may need to run one of these commands first:
+Due to Windows file permissions, you'll see an **Administrator permission prompt** when applying settings for the first time. This is normal.
 
-1. **Option A - Grant Permissions (Recommended)**:
+1. Open Settings (`Ctrl+,`)
+2. Search for `VSCode Background`
+3. Configure video files, opacity, switch interval, etc.
+4. Click **Apply Settings** or wait for auto-prompt
+5. Accept the Administrator permission prompt
+6. Restart VSCode
 
-   - Open Command Palette (`Ctrl+Shift+P`)
-   - Run: `VSCode Background: Grant File Permissions (Run Once)`
-   - Accept the Administrator prompt
-   - Restart VSCode
-2. **Option B - Generate Install Script**:
+### Quick Start
 
-   - Run: `VSCode Background: Generate Install Script (Manual)`
-   - Save the script to your Desktop
-   - Right-click the script → "Run with PowerShell" as Administrator
+**Via Settings UI (Recommended):**
+
+1. Open Settings → Search "VSCode Background"
+2. Find **Video Files** setting → Click "Add Videos" command
+3. Select video files
+4. Adjust **Opacity** (0-1) and **Switch Interval**
+5. Make sure **Enabled** is checked
+6. Auto-prompt "Apply now?" → Click **Apply**
+7. Accept Administrator prompt
+8. Restart VSCode
 
 ## Usage
 
-### Enable Video Background
+### Recommended: Via Settings UI
 
-1. Open Command Palette (`Ctrl+Shift+P` or `Cmd+Shift+P`)
-2. Run: `VSCode Background: Add Videos` - select your video files
-3. Run: `VSCode Background: Enable Video Background`
-4. Restart VSCode when prompted
+1. **Open Settings** (`Ctrl+,`) → Search "VSCode Background"
+2. **Configure Videos**:
+   - Click "Add Videos" command to add video files
+   - Or use Command Palette: `VSCode Background: Add Videos`
+3. **Adjust Parameters**:
+   - **Enabled**: Check to enable background
+   - **Opacity**: Adjust transparency (recommended 0.5-0.9)
+   - **Switch Interval**: Switch interval in milliseconds (0 = infinite loop)
+4. **Apply**: Auto-prompt "Apply now?" after changes
+5. **Status**: "Current Status" displays current state
 
-### Disable Video Background
+### Via Commands
 
-1. Open Command Palette
-2. Run: `VSCode Background: Disable Video Background`
-3. Restart VSCode when prompted
+Shortcut: `Ctrl+Shift+P` to open Command Palette
+
+- `Add Videos` - Add video files
+- `Remove Video` - Remove video files
+- `Manage Videos` - View playlist
+- `Apply Settings` - Apply current settings
+- `Refresh Status` - Refresh status display
+- `Set Infinite Loop` - Quick toggle infinite loop
 
 ### Configure Settings
 
@@ -62,18 +82,20 @@ Settings can be configured via:
     "C:\\path\\to\\video2.mp4"
   ],
   "vscodeBackground.switchInterval": 180000,
-  "vscodeBackground.opacity": 0.3
+  "vscodeBackground.opacity": 0.8
 }
 ```
 
 ## Extension Settings
 
-| Setting                             | Type    | Default | Description                                                |
-| ----------------------------------- | ------- | ------- | ---------------------------------------------------------- |
-| `vscodeBackground.enabled`        | boolean | true    | Enable/disable video background                            |
-| `vscodeBackground.videoFiles`     | array   | []      | List of video file paths                                   |
-| `vscodeBackground.switchInterval` | number  | 180000  | Video switch interval in ms (0 = infinite loop, min: 5000) |
-| `vscodeBackground.opacity`        | number  | 0.3     | Background video opacity (0-1)                             |
+| Setting                           | Type    | Default           | Description                                                 |
+| --------------------------------- | ------- | ----------------- | ----------------------------------------------------------- |
+| `vscodeBackground.enabled`        | boolean | true              | Enable/disable video background                             |
+| `vscodeBackground.videoFiles`     | array   | []                | List of video file paths                                    |
+| `vscodeBackground.switchInterval` | number  | 180000            | Video switch interval in ms (0 = infinite loop, min: 10000) |
+| `vscodeBackground.opacity`        | number  | 0.8               | Background video opacity (0-1)                              |
+| `vscodeBackground.autoApply`      | boolean | true              | Auto-apply changes (requires Administrator permission once) |
+| `vscodeBackground.currentStatus`  | string  | "Not initialized" | **Read-only** - Display current background status           |
 
 ### Infinite Loop Mode
 
@@ -83,20 +105,20 @@ You can also run: `VSCode Background: Set Infinite Loop (No Switch)`
 
 ## Commands
 
-| Command                                | Description                                   |
-| -------------------------------------- | --------------------------------------------- |
-| `Enable Video Background`            | Enable video background with current settings |
-| `Disable Video Background`           | Remove video background                       |
-| `Add Videos`                         | Add video files to playlist                   |
-| `Remove Video`                       | Remove videos from playlist                   |
-| `Manage Videos`                      | View and manage video playlist                |
-| `Configure`                          | Quick access to settings                      |
-| `Grant File Permissions`             | One-time permission fix for Windows           |
-| `Generate Install Script`            | Create manual install script                  |
-| `Fix 'Installation Corrupt' Warning` | Update checksums to remove VSCode warning     |
-| `Set Infinite Loop`                  | Toggle infinite loop mode                     |
-| `Cleanup (Run Before Uninstall)`     | **IMPORTANT**: Remove all injected code |
-| `Show Diagnostics`                   | Debug information                             |
+| Command                              | Description                                               |
+| ------------------------------------ | --------------------------------------------------------- |
+| `Enable Video Background`            | Enable video background with current settings (legacy)    |
+| `Disable Video Background`           | Remove video background (legacy)                          |
+| `Add Videos`                         | **Recommended** - Add video files to playlist             |
+| `Remove Video`                       | Remove videos from playlist                               |
+| `Manage Videos`                      | View and manage video playlist                            |
+| `Apply Settings`                     | **Core** - Apply current settings (auto-run script)       |
+| `Refresh Status`                     | Refresh status display                                    |
+| `Configure`                          | Quick open settings                                       |
+| `Fix 'Installation Corrupt' Warning` | Update checksums to remove VSCode warning                 |
+| `Set Infinite Loop`                  | Toggle infinite loop mode                                 |
+| `Cleanup (Run Before Uninstall)`     | **IMPORTANT** - Remove all injected code before uninstall |
+| `Show Diagnostics`                   | Display debug information                                 |
 
 ## Important Notes
 
@@ -119,11 +141,17 @@ After enabling the background, VSCode may show an "Installation appears to be co
 
 ### Permission Issues
 
-If you see "Permission denied" errors:
+**You'll see an Administrator permission prompt when applying settings for the first time. This is normal.**
 
-1. Try: `VSCode Background: Grant File Permissions (Run Once)`
-2. Or generate and run the install script as Administrator
-3. Make sure no other VSCode instances are running
+- ✅ Click "Yes" to allow the script to modify VSCode files
+- ❌ If denied, the background won't be applied
+- 📝 Script location: `apply-settings.ps1` in extension directory
+- 🔒 Script only modifies VSCode's HTML/CSS files, not system files
+
+If you encounter permission errors:
+1. Close all VSCode windows
+2. Run VSCode as Administrator
+3. Or manually run the script as Administrator: `apply-settings.ps1` in extension directory
 
 ## Supported Video Formats
 
@@ -146,9 +174,10 @@ If you see "Permission denied" errors:
 
 ### Permission denied
 
-1. Run `Grant File Permissions` command
-2. Or run VSCode as Administrator
-3. Close all VSCode windows before trying again
+1. Make sure to accept the Administrator permission prompt
+2. Close all VSCode windows
+3. Run VSCode as Administrator
+4. Or manually run the script as Administrator: `apply-settings.ps1` in extension directory
 
 ### Video not playing
 

@@ -73,16 +73,16 @@
         "title": "VSCode Background: Set Infinite Loop (No Switch)"
       },
       {
-        "command": "vscode-background.grantPermissions",
-        "title": "VSCode Background: Grant File Permissions (Run Once)"
-      },
-      {
-        "command": "vscode-background.generateInstallScript",
-        "title": "VSCode Background: Generate Install Script (Manual)"
-      },
-      {
         "command": "vscode-background.cleanup",
         "title": "VSCode Background: Cleanup (Run Before Uninstall)"
+      },
+      {
+        "command": "vscode-background.applySettings",
+        "title": "VSCode Background: Apply Settings"
+      },
+      {
+        "command": "vscode-background.refreshStatus",
+        "title": "VSCode Background: Refresh Status"
       }
     ],
     "configuration": {
@@ -91,7 +91,7 @@
         "vscodeBackground.enabled": {
           "type": "boolean",
           "default": true,
-          "description": "Enable video background",
+          "markdownDescription": "**Enable video background** - Toggle to enable/disable. Changes will be applied automatically.",
           "order": 1
         },
         "vscodeBackground.videoFiles": {
@@ -100,14 +100,14 @@
             "type": "string"
           },
           "default": [],
-          "description": "List of video file paths to use as background (played in order from top to bottom)",
+          "markdownDescription": "**Video file paths** - Click 'Add Videos' button below or use command palette.\n\n$(file-add) Use **Add Videos** command to add files\n$(trash) Use **Remove Video** command to remove files\n$(list-tree) Use **Manage Videos** command to view playlist",
           "order": 2
         },
         "vscodeBackground.switchInterval": {
           "type": "number",
           "default": 180000,
           "minimum": 0,
-          "description": "Video switch interval in milliseconds (0 = infinite/no switch, minimum: 10000ms = 10 seconds)",
+          "markdownDescription": "**Video switch interval** (milliseconds)\n\n- `0` = Infinite loop (no switching)\n- Minimum: `10000` (10 seconds)\n- Default: `180000` (3 minutes)\n\n$(infinity) Use **Set Infinite Loop** command for quick toggle",
           "order": 3
         },
         "vscodeBackground.opacity": {
@@ -115,8 +115,21 @@
           "default": 0.3,
           "minimum": 0,
           "maximum": 1,
-          "description": "Video background opacity (0-1)",
+          "markdownDescription": "**Video opacity** (0-1)\n\n- `0` = Fully transparent (invisible)\n- `1` = Fully opaque (blocks content)\n- Recommended: `0.2` - `0.5`",
           "order": 4
+        },
+        "vscodeBackground.autoApply": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "**Auto-apply changes** - Automatically apply settings when changed. Requires Administrator privileges on first run.\n\n$(warning) Disable if you want to manually control when to apply.",
+          "order": 5
+        },
+        "vscodeBackground.currentStatus": {
+          "type": "string",
+          "default": "Not initialized",
+          "markdownDescription": "**Current Status** (read-only)\n\nShows the current state of video background injection. Use **Refresh Status** command to update.",
+          "readOnly": true,
+          "order": 6
         }
       }
     }

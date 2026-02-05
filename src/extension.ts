@@ -3,10 +3,12 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { exec } from 'child_process';
 import * as crypto from 'crypto';
+import * as os from 'os';
 
 let workbenchHtmlPath: string = '';
 let workbenchCssPath: string = '';
 let isBackgroundEnabled: boolean = false;
+let extensionContext: vscode.ExtensionContext;
 
 // 动态发现 VSCode 安装目录下可能的版本哈希子目录
 function findVersionedPaths(baseDir: string): string[] {
@@ -45,8 +47,197 @@ function findVSCodeRoot(startDir: string, maxLevels: number = 5): string[] {
 	return [...new Set(roots)]; // 去重
 }
 
+// 生成应用脚本（内部函数）
+async function generateApplyScript(): Promise<string | null> {
+	const config = vscode.workspace.getConfiguration('vscodeBackground');
+	const videoFiles = config.get<string[]>('videoFiles', []);
+	const switchInterval = config.get<number>('switchInterval', 180000);
+	const opacity = config.get<number>('opacity', 0.3);
+	const enabled = config.get<boolean>('enabled', true);
+
+	if (!workbenchHtmlPath || !workbenchCssPath) {
+		vscode.window.showErrorMessage('Cannot locate VSCode workbench files.');
+		return null;
+	}
+
+	const htmlDir = path.dirname(workbenchHtmlPath);
+	const cssDir = path.dirname(workbenchCssPath);
+	const videosDir = path.join(htmlDir, 'background-videos');
+	const appRoot = vscode.env.appRoot;
+	const productJsonPath = path.join(appRoot, 'product.json');
+
+	// 准备视频文件复制命令
+	const videoCopyLines: string[] = [];
+	if (videoFiles.length > 0) {
+		videoFiles.forEach((file, index) => {
+			const ext = path.extname(file).toLowerCase().replace('.', '') || 'mp4';
+			const destFile = 'bg' + (index + 1) + '.' + ext;
+			videoCopyLines.push('    Copy-Item -Path "' + file.replace(/\\/g, '\\\\') + '" -Destination "$videosDir\\\\' + destFile + '" -Force');
+		});
+	}
+
+	// 生成视频脚本和 CSS
+	const videoScript = generateVideoScript(switchInterval, opacity);
+	const cssRules = generateCssRules(opacity);
+
+	// 转义特殊字符
+	const escapedVideoScript = videoScript
+		.replace(/\\/g, '\\\\')
+		.replace(/"/g, '\\"')
+		.replace(/`/g, '``')
+		.replace(/\$/g, '`$');
+
+	const escapedCssRules = cssRules
+		.replace(/\\/g, '\\\\')
+		.replace(/"/g, '\\"');
+
+	const scriptLines: string[] = [
+		'# VSCode Background - Auto-Apply Script',
+		'# This script is automatically generated and executed',
+		'',
+		'$ErrorActionPreference = "Stop"',
+		'',
+		'$htmlPath = "' + workbenchHtmlPath.replace(/\\/g, '\\\\') + '"',
+		'$cssPath = "' + workbenchCssPath.replace(/\\/g, '\\\\') + '"',
+		'$videosDir = "' + videosDir.replace(/\\/g, '\\\\') + '"',
+		'$productJsonPath = "' + productJsonPath.replace(/\\/g, '\\\\') + '"',
+		'$enabled = $' + (enabled ? 'true' : 'false'),
+		'',
+		'Write-Host "VSCode Background - Applying Settings..." -ForegroundColor Cyan',
+		'',
+		'# Create videos directory',
+		'if (-not (Test-Path $videosDir)) {',
+		'    New-Item -ItemType Directory -Path $videosDir -Force | Out-Null',
+		'}',
+		'',
+	];
+
+	if (enabled && videoFiles.length > 0) {
+		scriptLines.push(
+			'# Copy video files',
+			'Write-Host "Copying ' + videoFiles.length + ' video file(s)..." -ForegroundColor Yellow',
+			...videoCopyLines,
+			'',
+			'# Read and modify HTML',
+			'Write-Host "Modifying workbench.html..." -ForegroundColor Yellow',
+			'$html = Get-Content $htmlPath -Raw -Encoding UTF8',
+			'',
+			'# Remove existing injection',
+			'$html = $html -replace "(?s)<!-- VSCODE-BACKGROUND-START -->.*?<!-- VSCODE-BACKGROUND-END -->", ""',
+			'',
+			'# Add new injection',
+			'$injection = "<!-- VSCODE-BACKGROUND-START -->" + "\\r\\n' + escapedVideoScript + '\\r\\n" + "<!-- VSCODE-BACKGROUND-END -->"',
+			'$html = $html -replace "(</body>)", "$injection`r`n`$1"',
+			'',
+			'[System.IO.File]::WriteAllText($htmlPath, $html, [System.Text.Encoding]::UTF8)',
+			'Write-Host "HTML updated!" -ForegroundColor Green',
+			'',
+			'# Modify CSS',
+			'Write-Host "Modifying CSS..." -ForegroundColor Yellow',
+			'$css = Get-Content $cssPath -Raw -Encoding UTF8',
+			'',
+			'# Remove existing CSS',
+			'$css = $css -replace "(?s)/\\* VSCODE-BACKGROUND-CSS-START \\*/.*?/\\* VSCODE-BACKGROUND-CSS-END \\*/", ""',
+			'',
+			'# Add new CSS',
+			'$cssInjection = "/* VSCODE-BACKGROUND-CSS-START */" + "\\r\\n' + escapedCssRules + '\\r\\n" + "/* VSCODE-BACKGROUND-CSS-END */"',
+			'$css = $css + "`r`n" + $cssInjection',
+			'',
+			'[System.IO.File]::WriteAllText($cssPath, $css, [System.Text.Encoding]::UTF8)',
+			'Write-Host "CSS updated!" -ForegroundColor Green',
+			''
+		);
+	} else {
+		scriptLines.push(
+			'# Remove injection (disabled or no videos)',
+			'Write-Host "Removing background injection..." -ForegroundColor Yellow',
+			'$html = Get-Content $htmlPath -Raw -Encoding UTF8',
+			'$html = $html -replace "(?s)<!-- VSCODE-BACKGROUND-START -->.*?<!-- VSCODE-BACKGROUND-END -->", ""',
+			'[System.IO.File]::WriteAllText($htmlPath, $html, [System.Text.Encoding]::UTF8)',
+			'',
+			'$css = Get-Content $cssPath -Raw -Encoding UTF8',
+			'$css = $css -replace "(?s)/\\* VSCODE-BACKGROUND-CSS-START \\*/.*?/\\* VSCODE-BACKGROUND-CSS-END \\*/", ""',
+			'[System.IO.File]::WriteAllText($cssPath, $css, [System.Text.Encoding]::UTF8)',
+			'Write-Host "Background removed!" -ForegroundColor Green',
+			''
+		);
+	}
+
+	scriptLines.push(
+		'Write-Host ""',
+		'Write-Host "Settings applied successfully!" -ForegroundColor Cyan',
+		'Write-Host "Please restart VSCode to see changes." -ForegroundColor Yellow'
+	);
+
+	return scriptLines.join('\r\n');
+}
+
+// 运行应用脚本（需要管理员权限）
+async function runApplyScript(): Promise<boolean> {
+	const scriptContent = await generateApplyScript();
+	if (!scriptContent) {
+		return false;
+	}
+
+	// 保存到扩展目录
+	const scriptPath = path.join(extensionContext.extensionPath, 'apply-settings.ps1');
+	fs.writeFileSync(scriptPath, scriptContent, 'utf8');
+
+	return new Promise((resolve) => {
+		const command = `powershell -Command "Start-Process powershell -ArgumentList '-ExecutionPolicy Bypass -File \\"${scriptPath}\\"' -Verb RunAs -Wait"`;
+
+		exec(command, (error) => {
+			if (error) {
+				vscode.window.showErrorMessage('Failed to apply settings: ' + error.message + '. Make sure to accept the Administrator prompt.');
+				resolve(false);
+			} else {
+				resolve(true);
+			}
+		});
+	});
+}
+
+// 检查当前状态
+async function checkCurrentStatus(): Promise<string> {
+	if (!workbenchHtmlPath || !fs.existsSync(workbenchHtmlPath)) {
+		return '❌ VSCode workbench files not found';
+	}
+
+	try {
+		const html = fs.readFileSync(workbenchHtmlPath, 'utf-8');
+		const hasInjection = html.includes('<!-- VSCODE-BACKGROUND-START -->');
+
+		if (!hasInjection) {
+			return '⚪ Not injected - Background is disabled';
+		}
+
+		// 提取视频数量
+		const videoMatch = html.match(/const DISCOVERY_MAX = (\d+)/);
+		const intervalMatch = html.match(/const switchInterval = (\d+)/);
+		const opacityMatch = html.match(/opacity: ([\d.]+)/);
+
+		let status = '✅ Background active';
+		if (intervalMatch) {
+			const interval = parseInt(intervalMatch[1]);
+			if (interval === 0) {
+				status += ' | Infinite loop';
+			} else {
+				status += ' | Switch: ' + (interval / 1000) + 's';
+			}
+		}
+		if (opacityMatch) {
+			status += ' | Opacity: ' + opacityMatch[1];
+		}
+
+		return status;
+	} catch (error) {
+		return '⚠️ Error reading files: ' + error;
+	}
+}
+
 export function activate(context: vscode.ExtensionContext) {
 	console.log('VSCode Background extension activated');
+	extensionContext = context;
 
 	// Locate workbench.html - try multiple possible paths
 	const appRoot = vscode.env.appRoot;
@@ -258,66 +449,41 @@ export function activate(context: vscode.ExtensionContext) {
 		vscode.window.showInformationMessage('Diagnostics information shown in output panel');
 	});
 
-	// 监听配置变化
+	// 监听配置变化 - 自动应用（如果启用）
 	const configWatcher = vscode.workspace.onDidChangeConfiguration(async (e) => {
 		if (e.affectsConfiguration('vscodeBackground')) {
 			const config = vscode.workspace.getConfiguration('vscodeBackground');
-			const enabled = config.get<boolean>('enabled', false);
-			const videoFiles = config.get<string[]>('videoFiles', []);
+			const autoApply = config.get<boolean>('autoApply', true);
 
-			// 检查是否有视频文件且背景已启用
-			if (enabled && videoFiles.length > 0) {
-				// 检查是否修改了 opacity 或 switchInterval
-				if (e.affectsConfiguration('vscodeBackground.opacity') ||
-					e.affectsConfiguration('vscodeBackground.switchInterval') ||
-					e.affectsConfiguration('vscodeBackground.videoFiles')) {
-					try {
-						await applyVideoBackground(videoFiles);
-						vscode.window.showInformationMessage(
-							'Background settings updated! Please restart VSCode to see changes.',
-							'Restart'
-						).then(selection => {
-							if (selection === 'Restart') {
-								vscode.commands.executeCommand('workbench.action.reloadWindow');
-							}
-						});
-					} catch (error) {
-						vscode.window.showErrorMessage(`Failed to update background: ${error}`);
+			// 跳过 currentStatus 的变化（避免循环）
+			if (e.affectsConfiguration('vscodeBackground.currentStatus')) {
+				return;
+			}
+
+			// 如果启用了自动应用
+			if (autoApply) {
+				// 给用户一点时间看配置变化，然后自动应用
+				setTimeout(async () => {
+					const action = await vscode.window.showInformationMessage(
+						'Settings changed. Apply now?',
+						'Apply',
+						'Later'
+					);
+
+					if (action === 'Apply') {
+						vscode.commands.executeCommand('vscode-background.applySettings');
 					}
-				}
-				// 检查 enabled 从 false 变为 true
-				if (e.affectsConfiguration('vscodeBackground.enabled') && !isBackgroundEnabled) {
-					try {
-						await applyVideoBackground(videoFiles);
-						vscode.window.showInformationMessage(
-							'Video background enabled! Please restart VSCode to see changes.',
-							'Restart'
-						).then(selection => {
-							if (selection === 'Restart') {
-								vscode.commands.executeCommand('workbench.action.reloadWindow');
-							}
-						});
-					} catch (error) {
-						vscode.window.showErrorMessage(`Failed to enable background: ${error}`);
+				}, 1000);
+			} else {
+				// 提示用户手动应用
+				vscode.window.showInformationMessage(
+					'Settings changed. Run "Apply Settings" command to apply.',
+					'Apply Now'
+				).then(action => {
+					if (action === 'Apply Now') {
+						vscode.commands.executeCommand('vscode-background.applySettings');
 					}
-				}
-			} else if (!enabled && isBackgroundEnabled) {
-				// enabled 从 true 变为 false
-				if (e.affectsConfiguration('vscodeBackground.enabled')) {
-					try {
-						await restoreOriginalWorkbench();
-						vscode.window.showInformationMessage(
-							'Video background disabled! Please restart VSCode.',
-							'Restart'
-						).then(selection => {
-							if (selection === 'Restart') {
-								vscode.commands.executeCommand('workbench.action.reloadWindow');
-							}
-						});
-					} catch (error) {
-						vscode.window.showErrorMessage(`Failed to disable background: ${error}`);
-					}
-				}
+				});
 			}
 		}
 	});
@@ -571,109 +737,13 @@ export function activate(context: vscode.ExtensionContext) {
 		}
 	});
 
-	// 一次性授权文件权限命令 - 修改 VSCode 文件的 ACL 权限
-	const grantPermissions = vscode.commands.registerCommand('vscode-background.grantPermissions', async () => {
-		if (process.platform !== 'win32') {
-			vscode.window.showInformationMessage('This command is only needed on Windows.');
-			return;
-		}
-
-		if (!workbenchHtmlPath || !workbenchCssPath) {
-			vscode.window.showErrorMessage('Cannot locate VSCode workbench files.');
-			return;
-		}
-
-		const htmlDir = path.dirname(workbenchHtmlPath);
-		const cssDir = path.dirname(workbenchCssPath);
-		const appRoot = vscode.env.appRoot;
-		const productJsonPath = path.join(appRoot, 'product.json');
-
-		// 生成 PowerShell 脚本来修改权限
-		const psScript = `
-# VSCode Background - Grant Permissions Script
-# This script grants write permissions to VSCode files for the current user
-
-$ErrorActionPreference = "Stop"
-
-$files = @(
-    "${workbenchHtmlPath.replace(/\\/g, '\\\\')}",
-    "${workbenchCssPath.replace(/\\/g, '\\\\')}",
-    "${productJsonPath.replace(/\\/g, '\\\\')}"
-)
-
-$folders = @(
-    "${htmlDir.replace(/\\/g, '\\\\')}",
-    "${cssDir.replace(/\\/g, '\\\\')}"
-)
-
-$currentUser = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
-
-foreach ($file in $files) {
-    if (Test-Path $file) {
-        try {
-            $acl = Get-Acl $file
-            $rule = New-Object System.Security.AccessControl.FileSystemAccessRule($currentUser, "FullControl", "Allow")
-            $acl.SetAccessRule($rule)
-            Set-Acl $file $acl
-            Write-Host "Granted access to: $file" -ForegroundColor Green
-        } catch {
-            Write-Host "Failed to grant access to: $file - $_" -ForegroundColor Red
-        }
-    }
-}
-
-foreach ($folder in $folders) {
-    if (Test-Path $folder) {
-        try {
-            $acl = Get-Acl $folder
-            $rule = New-Object System.Security.AccessControl.FileSystemAccessRule($currentUser, "FullControl", "ContainerInherit,ObjectInherit", "None", "Allow")
-            $acl.SetAccessRule($rule)
-            Set-Acl $folder $acl
-            Write-Host "Granted access to folder: $folder" -ForegroundColor Green
-        } catch {
-            Write-Host "Failed to grant access to folder: $folder - $_" -ForegroundColor Red
-        }
-    }
-}
-
-Write-Host ""
-Write-Host "Permission grant complete!" -ForegroundColor Cyan
-Write-Host "Please restart VSCode to apply changes." -ForegroundColor Yellow
-pause
-`;
-
-		// 保存脚本到临时文件
-		const tempScriptPath = path.join(require('os').tmpdir(), 'vscode-bg-grant-permissions.ps1');
-		fs.writeFileSync(tempScriptPath, psScript, 'utf8');
-
-		// 以管理员身份运行脚本
-		const command = `powershell -Command "Start-Process powershell -ArgumentList '-ExecutionPolicy Bypass -File \\"${tempScriptPath}\\"' -Verb RunAs -Wait"`;
-
-		const action = await vscode.window.showInformationMessage(
-			'This will open an Administrator prompt to grant file permissions. Continue?',
-			'Grant Permissions',
-			'Cancel'
-		);
-
-		if (action !== 'Grant Permissions') return;
-
-		exec(command, (error) => {
-			if (error) {
-				vscode.window.showErrorMessage('Failed to grant permissions: ' + error.message);
-			} else {
-				vscode.window.showInformationMessage('Permissions granted! Please restart VSCode and try enabling background again.');
-			}
-		});
-	});
-
-	// 生成手动安装脚本命令
-	const generateInstallScript = vscode.commands.registerCommand('vscode-background.generateInstallScript', async () => {
+	// 应用设置命令 - 自动生成并运行脚本
+	const applySettings = vscode.commands.registerCommand('vscode-background.applySettings', async () => {
 		const config = vscode.workspace.getConfiguration('vscodeBackground');
 		const videoFiles = config.get<string[]>('videoFiles', []);
-		const switchInterval = config.get<number>('switchInterval', 180000);
-		const opacity = config.get<number>('opacity', 0.3);
+		const enabled = config.get<boolean>('enabled', true);
 
-		if (videoFiles.length === 0) {
+		if (enabled && videoFiles.length === 0) {
 			const action = await vscode.window.showWarningMessage(
 				'No video files configured. Add videos first?',
 				'Add Videos',
@@ -685,77 +755,31 @@ pause
 			return;
 		}
 
-		if (!workbenchHtmlPath || !workbenchCssPath) {
-			vscode.window.showErrorMessage('Cannot locate VSCode workbench files.');
-			return;
-		}
+		vscode.window.showInformationMessage('Applying settings... Please accept the Administrator prompt.');
 
-		const htmlDir = path.dirname(workbenchHtmlPath);
-		const videosDir = path.join(htmlDir, 'background-videos');
+		const success = await runApplyScript();
+		if (success) {
+			// 更新状态
+			const status = await checkCurrentStatus();
+			await config.update('currentStatus', status, vscode.ConfigurationTarget.Global);
 
-		// 准备视频文件复制命令
-		const videoCopyLines: string[] = [];
-		videoFiles.forEach((file, index) => {
-			const ext = path.extname(file).toLowerCase().replace('.', '') || 'mp4';
-			const destFile = 'bg' + (index + 1) + '.' + ext;
-			videoCopyLines.push('Copy-Item -Path "' + file.replace(/\\/g, '\\\\') + '" -Destination "$videosDir\\\\' + destFile + '" -Force');
-		});
-
-		// 生成脚本（使用字符串拼接避免模板字符串问题）
-		const lines: string[] = [
-			'# VSCode Background - Install Script',
-			'# Run this script as Administrator to apply video background',
-			'',
-			'$ErrorActionPreference = "Stop"',
-			'',
-			'$htmlPath = "' + workbenchHtmlPath.replace(/\\/g, '\\\\') + '"',
-			'$cssPath = "' + workbenchCssPath.replace(/\\/g, '\\\\') + '"',
-			'$videosDir = "' + videosDir.replace(/\\/g, '\\\\') + '"',
-			'',
-			'Write-Host "VSCode Background - Install Script" -ForegroundColor Cyan',
-			'Write-Host "=================================" -ForegroundColor Cyan',
-			'Write-Host ""',
-			'',
-			'# Create videos directory',
-			'if (-not (Test-Path $videosDir)) {',
-			'    New-Item -ItemType Directory -Path $videosDir -Force | Out-Null',
-			'    Write-Host "Created videos directory: $videosDir" -ForegroundColor Green',
-			'}',
-			'',
-			'# Copy video files',
-			'Write-Host "Copying video files..." -ForegroundColor Yellow',
-			...videoCopyLines,
-			'Write-Host "Video files copied successfully!" -ForegroundColor Green',
-			'',
-			'# Note: HTML/CSS modifications should be done by the extension',
-			'# This script only copies video files and sets permissions',
-			'',
-			'Write-Host ""',
-			'Write-Host "Video files installed!" -ForegroundColor Cyan',
-			'Write-Host "Now restart VSCode and run Enable Video Background command." -ForegroundColor Yellow',
-			'pause'
-		];
-
-		const psScript = lines.join('\r\n');
-
-		// 让用户选择保存位置
-		const saveUri = await vscode.window.showSaveDialog({
-			defaultUri: vscode.Uri.file(path.join(require('os').homedir(), 'Desktop', 'install-vscode-background.ps1')),
-			filters: { 'PowerShell Script': ['ps1'] },
-			title: 'Save Install Script'
-		});
-
-		if (saveUri) {
-			fs.writeFileSync(saveUri.fsPath, psScript, 'utf8');
 			vscode.window.showInformationMessage(
-				'Script saved! Right-click and select "Run with PowerShell" as Administrator.',
-				'Open Folder'
+				'Settings applied! Restart VSCode to see changes.',
+				'Restart Now'
 			).then(action => {
-				if (action === 'Open Folder') {
-					exec('explorer /select,"' + saveUri.fsPath + '"');
+				if (action === 'Restart Now') {
+					vscode.commands.executeCommand('workbench.action.reloadWindow');
 				}
 			});
 		}
+	});
+
+	// 刷新状态命令
+	const refreshStatus = vscode.commands.registerCommand('vscode-background.refreshStatus', async () => {
+		const status = await checkCurrentStatus();
+		const config = vscode.workspace.getConfiguration('vscodeBackground');
+		await config.update('currentStatus', status, vscode.ConfigurationTarget.Global);
+		vscode.window.showInformationMessage('Status refreshed: ' + status);
 	});
 
 	// 清理命令 - 卸载插件前运行
@@ -789,9 +813,14 @@ pause
 		}
 	});
 
-	// 启动时检查是否已启用背景
+	// 启动时检查是否已启用背景并更新状态
 	const config = vscode.workspace.getConfiguration('vscodeBackground');
 	isBackgroundEnabled = config.get<boolean>('enabled', false);
+	
+	// 初始化状态
+	checkCurrentStatus().then(status => {
+		config.update('currentStatus', status, vscode.ConfigurationTarget.Global);
+	});
 
 	context.subscriptions.push(
 		enableBackground,
@@ -804,8 +833,8 @@ pause
 		manageVideos,
 		fixChecksums,
 		setInfiniteLoop,
-		grantPermissions,
-		generateInstallScript,
+		applySettings,
+		refreshStatus,
 		cleanup
 	);
 }
@@ -853,7 +882,7 @@ async function applyVideoBackground(videoFiles: string[]): Promise<void> {
 
 	const config = vscode.workspace.getConfiguration('vscodeBackground');
 	const switchInterval = config.get<number>('switchInterval', 180000);
-	const opacity = config.get<number>('opacity', 0.3);
+	const opacity = config.get<number>('opacity', 0.8);
 
 	console.log('Config - switchInterval:', switchInterval, 'opacity:', opacity);
 

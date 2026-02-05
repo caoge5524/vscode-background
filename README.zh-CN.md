@@ -12,40 +12,60 @@
 - **自动发现**：自动检测并按顺序播放视频
 - **自定义设置**：配置不透明度、切换间隔和视频选择
 - **简单启用/禁用**：通过简单命令启用或禁用视频背景
-- **权限工具**：内置工具处理 Windows 文件权限问题
+- **自动应用**：修改设置后自动应用更改（需要一次管理员权限）
+- **实时状态**：显示当前背景状态和配置信息
 
 ## 安装配置
 
-### 首次安装（Windows）
+### 首次使用（Windows）
 
-由于 Windows 文件权限限制，首次使用可能需要运行以下命令之一：
+由于 Windows 文件权限限制，首次应用设置时会弹出**管理员权限提示**，这是正常现象。
 
-1. **方案 A - 授权权限（推荐）**：
+1. 打开设置（`Ctrl+,`）
+2. 搜索 `VSCode Background`
+3. 配置视频文件、不透明度、切换间隔等
+4. 点击 **Apply Settings** 或等待自动提示
+5. 接受管理员权限提示
+6. 重启 VSCode
 
-   - 打开命令面板（`Ctrl+Shift+P`）
-   - 运行：`VSCode Background: Grant File Permissions (Run Once)`
-   - 接受管理员提示
-   - 重启 VSCode
-2. **方案 B - 生成安装脚本**：
+### 快速开始
 
-   - 运行：`VSCode Background: Generate Install Script (Manual)`
-   - 将脚本保存到桌面
-   - 右键点击脚本 → "使用 PowerShell 运行"并以管理员身份执行
+**通过设置界面（推荐）：**
+
+1. 打开设置 → 搜索 "VSCode Background"
+2. 找到 **Video Files** 设置 → 点击 "Add Videos" 命令
+3. 选择视频文件
+4. 调整 **Opacity** (0-1) 和 **Switch Interval**
+5. 确保 **Enabled** 已勾选
+6. 自动弹出 "Apply now?" → 点击 **Apply**
+7. 接受管理员提示
+8. 重启 VSCode
 
 ## 使用方法
 
-### 启用视频背景
+### 推荐方式：通过设置界面
 
-1. 打开命令面板（`Ctrl+Shift+P` 或 `Cmd+Shift+P`）
-2. 运行：`VSCode Background: Add Videos` - 选择视频文件
-3. 运行：`VSCode Background: Enable Video Background`
-4. 出现提示时点击重启
+1. **打开设置** (`Ctrl+,`) → 搜索 "VSCode Background"
+2. **配置视频**：
+   - 点击 "Add Videos" 命令添加视频文件
+   - 或使用命令面板：`VSCode Background: Add Videos`
+3. **调整参数**：
+   - **Enabled**：勾选启用背景
+   - **Opacity**：调整透明度 (推荐 0.5-0.9)
+   - **Switch Interval**：切换间隔毫秒数 (0 = 无限循环)
+4. **应用**: 修改后会自动提示 "Apply now?"
+5. **Status**: "Current Status" 显示当前状态
 
-### 禁用视频背景
+### 命令方式
 
-1. 打开命令面板
-2. 运行：`VSCode Background: Disable Video Background`
-3. 出现提示时点击重启
+快捷键：`Ctrl+Shift+P` 打开命令面板
+
+- `Add Videos` - 添加视频文件
+- `Remove Video` - 删除视频文件
+- `Manage Videos` - 查看播放列表
+- `Apply Settings` - 应用当前设置
+- `Refresh Status` - 刷新状态显示
+- `Set Infinite Loop` - 快速切换无限循环
 
 ### 配置设置
 
@@ -62,18 +82,20 @@
     "C:\\Videos\\background2.mp4"
   ],
   "vscodeBackground.switchInterval": 180000,
-  "vscodeBackground.opacity": 0.3
+  "vscodeBackground.opacity": 0.8
 }
 ```
 
 ## 扩展设置
 
-| 设置项                              | 类型    | 默认值 | 说明                                             |
-| ----------------------------------- | ------- | ------ | ------------------------------------------------ |
-| `vscodeBackground.enabled`        | boolean | true   | 启用/禁用视频背景                                |
-| `vscodeBackground.videoFiles`     | array   | []     | 视频文件路径列表                                 |
-| `vscodeBackground.switchInterval` | number  | 180000 | 视频切换间隔（毫秒），0 = 无限循环，最小值：5000 |
-| `vscodeBackground.opacity`        | number  | 0.3    | 背景视频不透明度（0-1）                          |
+| 设置项                            | 类型    | 默认值            | 说明                                              |
+| --------------------------------- | ------- | ----------------- | ------------------------------------------------- |
+| `vscodeBackground.enabled`        | boolean | true              | 启用/禁用视频背景                                 |
+| `vscodeBackground.videoFiles`     | array   | []                | 视频文件路径列表                                  |
+| `vscodeBackground.switchInterval` | number  | 180000            | 视频切换间隔（毫秒），0 = 无限循环，最小值：10000 |
+| `vscodeBackground.opacity`        | number  | 0.8               | 背景视频不透明度（0-1）                           |
+| `vscodeBackground.autoApply`      | boolean | true              | 自动应用更改（需要一次管理员权限）                |
+| `vscodeBackground.currentStatus`  | string  | "Not initialized" | **只读** - 显示当前背景状态                       |
 
 ### 无限循环模式
 
@@ -83,20 +105,20 @@
 
 ## 命令列表
 
-| 命令                                   | 说明                             |
-| -------------------------------------- | -------------------------------- |
-| `Enable Video Background`            | 使用当前设置启用视频背景         |
-| `Disable Video Background`           | 移除视频背景                     |
-| `Add Videos`                         | 添加视频文件到播放列表           |
-| `Remove Video`                       | 从播放列表移除视频               |
-| `Manage Videos`                      | 查看和管理视频播放列表           |
-| `Configure`                          | 快速访问设置                     |
-| `Grant File Permissions`             | Windows 一次性权限修复           |
-| `Generate Install Script`            | 创建手动安装脚本                 |
-| `Fix 'Installation Corrupt' Warning` | 更新校验和以移除 VSCode 警告     |
-| `Set Infinite Loop`                  | 切换无限循环模式                 |
-| `Cleanup (Run Before Uninstall)`     | **重要**：移除所有注入代码 |
-| `Show Diagnostics`                   | 调试信息                         |
+| 命令                                 | 说明                                    |
+| ------------------------------------ | --------------------------------------- |
+| `Enable Video Background`            | 使用当前设置启用视频背景（旧方式）      |
+| `Disable Video Background`           | 移除视频背景（旧方式）                  |
+| `Add Videos`                         | **推荐** - 添加视频文件到播放列表       |
+| `Remove Video`                       | 从播放列表移除视频                      |
+| `Manage Videos`                      | 查看和管理视频播放列表                  |
+| `Apply Settings`                     | **核心** - 应用当前设置（自动运行脚本） |
+| `Refresh Status`                     | 刷新状态显示                            |
+| `Configure`                          | 快速打开设置                            |
+| `Fix 'Installation Corrupt' Warning` | 更新校验和以移除 VSCode 警告            |
+| `Set Infinite Loop`                  | 切换无限循环模式                        |
+| `Cleanup (Run Before Uninstall)`     | **重要** - 卸载前必须运行，移除所有注入 |
+| `Show Diagnostics`                   | 显示调试信息                            |
 
 ## 重要说明
 
@@ -119,11 +141,18 @@
 
 ### 权限问题
 
-如果遇到"权限被拒绝"错误：
+**首次应用设置时会弹出管理员权限提示，这是正常的。**
 
-1. 尝试运行：`VSCode Background: Grant File Permissions (Run Once)`
-2. 或生成安装脚本并以管理员身份运行
-3. 确保关闭所有其他 VSCode 实例
+- ✅ 点击"是"允许脚本修改 VSCode 文件
+- ❌ 如果拒绝，背景将不会生效
+- 📝 脚本位于扩展目录：`apply-settings.ps1`
+- 🔒 脚本只修改 VSCode 的 HTML/CSS 文件，不涉及系统文件
+
+如果遇到权限错误：
+
+1. 关闭所有 VSCode 窗口
+2. 以管理员身份运行 VSCode
+3. 或手动以管理员身份运行脚本：扩展目录下的 `apply-settings.ps1`
 
 ## 支持的视频格式
 
@@ -146,9 +175,10 @@
 
 ### 权限被拒绝
 
-1. 运行 `Grant File Permissions` 命令
-2. 或以管理员身份运行 VSCode
-3. 尝试前关闭所有 VSCode 窗口
+1. 确保接受管理员权限提示
+2. 关闭所有 VSCode 窗口
+3. 以管理员身份运行 VSCode
+4. 或手动以管理员身份运行脚本：扩展目录下的 `apply-settings.ps1`
 
 ### 视频不播放
 
