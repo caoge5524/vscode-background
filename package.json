@@ -63,6 +63,26 @@
       {
         "command": "vscode-background.manageVideos",
         "title": "VSCode Background: Manage Videos"
+      },
+      {
+        "command": "vscode-background.fixChecksums",
+        "title": "VSCode Background: Fix 'Installation Corrupt' Warning"
+      },
+      {
+        "command": "vscode-background.setInfiniteLoop",
+        "title": "VSCode Background: Set Infinite Loop (No Switch)"
+      },
+      {
+        "command": "vscode-background.grantPermissions",
+        "title": "VSCode Background: Grant File Permissions (Run Once)"
+      },
+      {
+        "command": "vscode-background.generateInstallScript",
+        "title": "VSCode Background: Generate Install Script (Manual)"
+      },
+      {
+        "command": "vscode-background.cleanup",
+        "title": "VSCode Background: Cleanup (Run Before Uninstall)"
       }
     ],
     "configuration": {
@@ -70,7 +90,7 @@
       "properties": {
         "vscodeBackground.enabled": {
           "type": "boolean",
-          "default": false,
+          "default": true,
           "description": "Enable video background",
           "order": 1
         },
@@ -86,7 +106,8 @@
         "vscodeBackground.switchInterval": {
           "type": "number",
           "default": 180000,
-          "description": "Video switch interval in milliseconds (default: 3 minutes)",
+          "minimum": 0,
+          "description": "Video switch interval in milliseconds (0 = infinite/no switch, minimum: 10000ms = 10 seconds)",
           "order": 3
         },
         "vscodeBackground.opacity": {
