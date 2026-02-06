@@ -8,7 +8,23 @@ All notable changes to the "vscode-background" extension will be documented in t
 
 ## English
 
-### [0.0.1] - 2026-01-29
+### [1.0.1] - 2026-02-06
+
+#### Fixed
+- 🔧 **CSS Injection Without Videos**: Extension now injects CSS opacity/theme rules even when no video files are configured, allowing users to set up the extension before adding videos
+- 🎬 **Video Playback Gap Handling**: Rewrote video discovery to scan all bgN.mp4 files (1-100) via HEAD requests, building an "available" array to prevent black screens when video files are sparse or missing
+- 🗑️ **Reliable Cleanup**: Implemented multi-stage cleanup with fs.rmSync → shell fallback (PowerShell/rm-rf) → EBUSY error surfacing for actionable user menu
+- 🔐 **CSP Robustness**: Replaced fragile line-specific regex with format-agnostic CSP modification that finds the entire `script-src` directive and adds `'unsafe-inline'` before the semicolon, fixing inline script execution across different VSCode versions
+- ✨ **Better Error Messages**: Added visual indicators (✅, ⚠️, ℹ️) in console logs for easier debugging
+
+#### Improved
+- Video script now gracefully handles missing bgN files without freezing on black screen
+- CSS is always applied when extension is enabled, independent of video count
+- CSP modification tolerates various formatting styles in workbench.html
+
+---
+
+### [1.0.0] - 2026-01-29
 
 #### Added
 - 🎬 Initial release of VSCode Background extension
@@ -42,7 +58,23 @@ All notable changes to the "vscode-background" extension will be documented in t
 
 ## 简体中文
 
-### [0.0.1] - 2026-01-29
+### [1.0.1] - 2026-02-06
+
+#### 修复
+- 🔧 **无视频时 CSS 注入**：扩展现在即使在没有配置视频文件时也会注入 CSS 不透明度/主题规则，允许用户在添加视频前设置扩展
+- 🎬 **视频播放间隙处理**：重写视频发现逻辑，通过 HEAD 请求扫描所有 bgN.mp4 文件（1-100），构建"可用"数组以防止视频文件稀疏或缺失时出现黑屏
+- 🗑️ **可靠的清理**：实现多阶段清理，包括 fs.rmSync → shell 回退（PowerShell/rm-rf）→ EBUSY 错误提示，为用户提供可操作的菜单
+- 🔐 **CSP 鲁棒性**：用格式无关的 CSP 修改替代了脆弱的特定行正则表达式，找到整个 `script-src` 指令并在分号前添加 `'unsafe-inline'`，修复不同 VSCode 版本中的内联脚本执行
+- ✨ **更好的错误信息**：在控制台日志中添加了视觉指示符（✅、⚠️、ℹ️）便于调试
+
+#### 改进
+- 视频脚本现在可以优雅地处理缺失的 bgN 文件，不会在黑屏时冻结
+- 扩展启用时 CSS 始终被应用，与视频数量无关
+- CSP 修改可以容忍 workbench.html 中各种格式样式
+
+---
+
+### [1.0.0] - 2026-01-29
 
 #### 新增
 - 🎬 VSCode Background 扩展初始版本发布

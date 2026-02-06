@@ -1239,25 +1239,31 @@ async function applyVideoBackground(videoFiles) {
     const videoScript = generateVideoScript(switchInterval, opacity);
     console.log('Generated video script length:', videoScript.length);
     // Modify CSP to allow inline scripts (required for video background script)
-    // Need to check specifically if script-src has 'unsafe-inline', not just anywhere in the file
-    // (style-src may already have it)
-    const scriptSrcMatch = workbenchHtml.match(/script-src[\s\S]*?;/);
-    const scriptSrcHasUnsafeInline = scriptSrcMatch && scriptSrcMatch[0].includes("'unsafe-inline'");
-    if (workbenchHtml.includes("script-src") && !scriptSrcHasUnsafeInline) {
-        // Match script-src followed by 'self' and 'unsafe-eval'
-        const cspRegex = /(script-src[\s\S]*?'self'[\s]*?)(\n[\s]*'unsafe-eval')/;
-        if (cspRegex.test(workbenchHtml)) {
-            workbenchHtml = workbenchHtml.replace(cspRegex, "$1\n\t\t\t\t\t'unsafe-inline'$2");
-            console.log('Added unsafe-inline to CSP script-src (before unsafe-eval)');
+    // More robust CSP handling: find the entire script-src directive and add 'unsafe-inline' before the semicolon
+    let cspModified = false;
+    if (workbenchHtml.includes("script-src")) {
+        // Extract entire script-src directive (from script-src to ;)
+        const scriptSrcMatch = workbenchHtml.match(/script-src\s+[^;]*;/);
+        if (scriptSrcMatch) {
+            const scriptSrcBlock = scriptSrcMatch[0];
+            // Check if 'unsafe-inline' is already present
+            if (!scriptSrcBlock.includes("'unsafe-inline'")) {
+                // Insert 'unsafe-inline' before the semicolon
+                const newScriptSrc = scriptSrcBlock.replace(/;$/, " 'unsafe-inline';");
+                workbenchHtml = workbenchHtml.replace(scriptSrcBlock, newScriptSrc);
+                console.log('✅ Added unsafe-inline to CSP script-src directive');
+                cspModified = true;
+            }
+            else {
+                console.log('ℹ️ script-src already has unsafe-inline, skipping CSP modification');
+            }
         }
         else {
-            // Fallback: insert after 'self' in script-src
-            workbenchHtml = workbenchHtml.replace(/(script-src[\s\S]*?'self')/, "$1\n\t\t\t\t\t'unsafe-inline'");
-            console.log('Added unsafe-inline to CSP script-src (fallback)');
+            console.warn('⚠️ Could not find complete script-src directive in CSP');
         }
     }
-    else if (scriptSrcHasUnsafeInline) {
-        console.log('script-src already has unsafe-inline, skipping CSP modification');
+    else {
+        console.warn('⚠️ script-src not found in CSP meta tag');
     }
     console.log('Looking for <body tag in HTML...');
     console.log('HTML contains <body:', workbenchHtml.includes('<body'));
