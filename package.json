@@ -83,6 +83,22 @@
       {
         "command": "vscode-background.refreshStatus",
         "title": "VSCode Background: Refresh Status"
+      },
+      {
+        "command": "vscode-background.setOpacity",
+        "title": "VSCode Background: Set Opacity"
+      },
+      {
+        "command": "vscode-background.setSwitchInterval",
+        "title": "VSCode Background: Set Switch Interval"
+      },
+      {
+        "command": "vscode-background.showVideosFolder",
+        "title": "VSCode Background: Show Videos Folder"
+      },
+      {
+        "command": "vscode-background.setTheme",
+        "title": "VSCode Background: Set Theme"
       }
     ],
     "configuration": {
@@ -91,8 +107,24 @@
         "vscodeBackground.enabled": {
           "type": "boolean",
           "default": true,
-          "markdownDescription": "**Enable video background** - Toggle to enable/disable. Changes will be applied automatically.",
+          "markdownDescription": "**Enable video background** (read-only)\n\nUse **Enable Video Background** or **Disable Video Background** commands.",
+          "readOnly": true,
           "order": 1
+        },
+        "vscodeBackground.opacity": {
+          "type": "number",
+          "default": 0.8,
+          "minimum": 0,
+          "maximum": 1,
+          "scope": "application",
+          "markdownDescription": "**Video opacity** (internal use only, read-only)\n\nThis value is automatically synced from the actual workbench file.\n\nUse **Set Opacity** command to change it."
+        },
+        "vscodeBackground.switchInterval": {
+          "type": "number",
+          "default": 180000,
+          "minimum": 0,
+          "scope": "application",
+          "markdownDescription": "**Video switch interval in milliseconds** (internal use only, read-only)\n\nThis value is automatically synced from the actual workbench file.\n\nUse **Set Switch Interval** or **Set Infinite Loop** command to change it."
         },
         "vscodeBackground.videoFiles": {
           "type": "array",
@@ -100,36 +132,27 @@
             "type": "string"
           },
           "default": [],
-          "markdownDescription": "**Video file paths** - Click 'Add Videos' button below or use command palette.\n\n$(file-add) Use **Add Videos** command to add files\n$(trash) Use **Remove Video** command to remove files\n$(list-tree) Use **Manage Videos** command to view playlist",
-          "order": 2
-        },
-        "vscodeBackground.switchInterval": {
-          "type": "number",
-          "default": 180000,
-          "minimum": 0,
-          "markdownDescription": "**Video switch interval** (milliseconds)\n\n- `0` = Infinite loop (no switching)\n- Minimum: `10000` (10 seconds)\n- Default: `180000` (3 minutes)\n\n$(infinity) Use **Set Infinite Loop** command for quick toggle",
-          "order": 3
-        },
-        "vscodeBackground.opacity": {
-          "type": "number",
-          "default": 0.3,
-          "minimum": 0,
-          "maximum": 1,
-          "markdownDescription": "**Video opacity** (0-1)\n\n- `0` = Fully transparent (invisible)\n- `1` = Fully opaque (blocks content)\n- Recommended: `0.2` - `0.5`",
-          "order": 4
-        },
-        "vscodeBackground.autoApply": {
-          "type": "boolean",
-          "default": true,
-          "markdownDescription": "**Auto-apply changes** - Automatically apply settings when changed. Requires Administrator privileges on first run.\n\n$(warning) Disable if you want to manually control when to apply.",
-          "order": 5
+          "scope": "application",
+          "markdownDescription": "**Video file paths in background-videos folder** (internal use only, read-only)\n\nThis list stores paths to videos copied to the background-videos folder.\n\nUse **Add Videos** or **Remove Video** command to modify."
         },
         "vscodeBackground.currentStatus": {
           "type": "string",
           "default": "Not initialized",
-          "markdownDescription": "**Current Status** (read-only)\n\nShows the current state of video background injection. Use **Refresh Status** command to update.",
+          "markdownDescription": "**Current Status** (read-only)\n\nShows:\n- Background active/inactive status\n- Number of videos\n- Switch interval (or infinite loop)\n- Current opacity\n\nUse the following commands to configure:\n- $(file-add) **Add Videos** - Add video files\n- $(trash) **Remove Video** - Remove videos\n- $(settings-gear) **Set Opacity** - Change transparency\n- $(clock) **Set Switch Interval** - Change timing\n- $(sync) **Refresh Status** - Update this display",
           "readOnly": true,
-          "order": 6
+          "editPresentation": "multilineText",
+          "order": 2
+        },
+        "vscodeBackground.theme": {
+          "type": "string",
+          "default": "glass",
+          "enum": ["glass", "matte"],
+          "enumDescriptions": [
+            "Glass - Completely transparent (see video clearly)",
+            "Matte - Semi-transparent frosted glass effect"
+          ],
+          "scope": "application",
+          "markdownDescription": "**Background theme style** (internal use only, read-only)\n\nUse **Set Theme** command to change it.\n\n- **glass**: Completely transparent (default)\n- **matte**: Semi-transparent with blur effect"
         }
       }
     }

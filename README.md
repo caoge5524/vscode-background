@@ -66,36 +66,30 @@ Shortcut: `Ctrl+Shift+P` to open Command Palette
 - `Apply Settings` - Apply current settings
 - `Refresh Status` - Refresh status display
 - `Set Infinite Loop` - Quick toggle infinite loop
+- `Set Opacity` - Set background opacity (command only)
+- `Set Switch Interval` - Set rotation interval (command only)
+- `Show Videos Folder` - Show `background-videos` path and naming rules
 
 ### Configure Settings
 
-Settings can be configured via:
+Settings are **read-only** and only show current values.
 
-- Command Palette → `VSCode Background: Configure`
-- Or edit settings.json directly:
+Use commands to change values:
 
-```json
-{
-  "vscodeBackground.enabled": true,
-  "vscodeBackground.videoFiles": [
-    "C:\\path\\to\\video1.mp4",
-    "C:\\path\\to\\video2.mp4"
-  ],
-  "vscodeBackground.switchInterval": 180000,
-  "vscodeBackground.opacity": 0.8
-}
-```
+- `VSCode Background: Set Opacity`
+- `VSCode Background: Set Switch Interval`
+- `VSCode Background: Add Videos` / `Remove Video`
+- `VSCode Background: Enable Video Background` / `Disable Video Background`
 
 ## Extension Settings
 
-| Setting                           | Type    | Default           | Description                                                 |
-| --------------------------------- | ------- | ----------------- | ----------------------------------------------------------- |
-| `vscodeBackground.enabled`        | boolean | true              | Enable/disable video background                             |
-| `vscodeBackground.videoFiles`     | array   | []                | List of video file paths                                    |
-| `vscodeBackground.switchInterval` | number  | 180000            | Video switch interval in ms (0 = infinite loop, min: 10000) |
-| `vscodeBackground.opacity`        | number  | 0.8               | Background video opacity (0-1)                              |
-| `vscodeBackground.autoApply`      | boolean | true              | Auto-apply changes (requires Administrator permission once) |
-| `vscodeBackground.currentStatus`  | string  | "Not initialized" | **Read-only** - Display current background status           |
+| Setting                           | Type    | Default           | Description                                          |
+| --------------------------------- | ------- | ----------------- | ---------------------------------------------------- |
+| `vscodeBackground.enabled`        | boolean | true              | **Read-only** - Use enable/disable commands          |
+| `vscodeBackground.videoFiles`     | array   | []                | **Read-only** - Use add/remove/manage commands       |
+| `vscodeBackground.switchInterval` | number  | 180000            | **Read-only** - Use Set Switch Interval (min: 10000) |
+| `vscodeBackground.opacity`        | number  | 0.8               | **Read-only** - Use Set Opacity (0-1)                |
+| `vscodeBackground.currentStatus`  | string  | "Not initialized" | **Read-only** - Display current background status    |
 
 ### Infinite Loop Mode
 
@@ -117,6 +111,9 @@ You can also run: `VSCode Background: Set Infinite Loop (No Switch)`
 | `Configure`                          | Quick open settings                                       |
 | `Fix 'Installation Corrupt' Warning` | Update checksums to remove VSCode warning                 |
 | `Set Infinite Loop`                  | Toggle infinite loop mode                                 |
+| `Set Opacity`                        | Set background opacity (command only)                     |
+| `Set Switch Interval`                | Set rotation interval (command only)                      |
+| `Show Videos Folder`                 | Show background-videos path and naming rules              |
 | `Cleanup (Run Before Uninstall)`     | **IMPORTANT** - Remove all injected code before uninstall |
 | `Show Diagnostics`                   | Display debug information                                 |
 
@@ -152,6 +149,15 @@ If you encounter permission errors:
 1. Close all VSCode windows
 2. Run VSCode as Administrator
 3. Or manually run the script as Administrator: `apply-settings.ps1` in extension directory
+
+### Manual video files
+
+You can manually add videos into the `background-videos` folder. Use `Show Videos Folder` to display the exact path.
+
+Naming rules (required):
+
+- `bg1.mp4`, `bg2.mp4`, `bg3.mp4` ...
+- Files are discovered in order starting from 1
 
 ## Supported Video Formats
 

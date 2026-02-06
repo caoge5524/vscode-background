@@ -66,35 +66,29 @@
 - `Apply Settings` - 应用当前设置
 - `Refresh Status` - 刷新状态显示
 - `Set Infinite Loop` - 快速切换无限循环
+- `Set Opacity` - 设置背景透明度（仅命令）
+- `Set Switch Interval` - 设置轮播间隔（仅命令）
+- `Show Videos Folder` - 显示 background-videos 路径及命名规则
 
 ### 配置设置
 
-可通过以下方式配置：
+设置项为**只读**，仅用于显示当前数据。
 
-- 命令面板 → `VSCode Background: Configure`
-- 或直接编辑 settings.json：
+请使用命令进行修改：
 
-```json
-{
-  "vscodeBackground.enabled": true,
-  "vscodeBackground.videoFiles": [
-    "C:\\Videos\\background1.mp4",
-    "C:\\Videos\\background2.mp4"
-  ],
-  "vscodeBackground.switchInterval": 180000,
-  "vscodeBackground.opacity": 0.8
-}
-```
+- `VSCode Background: Set Opacity`
+- `VSCode Background: Set Switch Interval`
+- `VSCode Background: Add Videos` / `Remove Video`
+- `VSCode Background: Enable Video Background` / `Disable Video Background`
 
 ## 扩展设置
 
 | 设置项                            | 类型    | 默认值            | 说明                                              |
 | --------------------------------- | ------- | ----------------- | ------------------------------------------------- |
-| `vscodeBackground.enabled`        | boolean | true              | 启用/禁用视频背景                                 |
-| `vscodeBackground.videoFiles`     | array   | []                | 视频文件路径列表                                  |
-| `vscodeBackground.switchInterval` | number  | 180000            | 视频切换间隔（毫秒），0 = 无限循环，最小值：10000 |
-| `vscodeBackground.opacity`        | number  | 0.8               | 背景视频不透明度（0-1）                           |
-| `vscodeBackground.autoApply`      | boolean | true              | 自动应用更改（需要一次管理员权限）                |
+| `vscodeBackground.enabled`        | boolean | true              | **只读** - 使用启用/禁用命令修改                  |
+| `vscodeBackground.videoFiles`     | array   | []                | **只读** - 使用添加/删除/管理命令修改             |
+| `vscodeBackground.switchInterval` | number  | 180000            | **只读** - 使用 Set Switch Interval（最小 10000） |
+| `vscodeBackground.opacity`        | number  | 0.8               | **只读** - 使用 Set Opacity（0-1）                |
 | `vscodeBackground.currentStatus`  | string  | "Not initialized" | **只读** - 显示当前背景状态                       |
 
 ### 无限循环模式
@@ -117,6 +111,9 @@
 | `Configure`                          | 快速打开设置                            |
 | `Fix 'Installation Corrupt' Warning` | 更新校验和以移除 VSCode 警告            |
 | `Set Infinite Loop`                  | 切换无限循环模式                        |
+| `Set Opacity`                        | 设置背景透明度（仅命令）                |
+| `Set Switch Interval`                | 设置轮播间隔（仅命令）                  |
+| `Show Videos Folder`                 | 显示 background-videos 路径及命名规则   |
 | `Cleanup (Run Before Uninstall)`     | **重要** - 卸载前必须运行，移除所有注入 |
 | `Show Diagnostics`                   | 显示调试信息                            |
 
@@ -153,6 +150,15 @@
 1. 关闭所有 VSCode 窗口
 2. 以管理员身份运行 VSCode
 3. 或手动以管理员身份运行脚本：扩展目录下的 `apply-settings.ps1`
+
+### 手动添加视频
+
+可将视频手动放入 `background-videos` 文件夹。使用 `Show Videos Folder` 命令查看准确路径。
+
+命名规则（必须）：
+
+- `bg1.mp4`, `bg2.mp4`, `bg3.mp4` ...
+- 按从 1 开始的顺序自动发现
 
 ## 支持的视频格式
 

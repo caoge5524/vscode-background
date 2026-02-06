@@ -47,12 +47,185 @@ function findVSCodeRoot(startDir: string, maxLevels: number = 5): string[] {
 	return [...new Set(roots)]; // 去重
 }
 
+// 辅助函数：读取配置（内部存储，不在UI显示）
+function getVideoFiles(): string[] {
+	const config = vscode.workspace.getConfiguration('vscodeBackground');
+	return config.get<string[]>('videoFiles', []);
+}
+
+function getOpacity(): number {
+	const config = vscode.workspace.getConfiguration('vscodeBackground');
+	return config.get<number>('opacity', 0.8);
+}
+
+function getSwitchInterval(): number {
+	const config = vscode.workspace.getConfiguration('vscodeBackground');
+	return config.get<number>('switchInterval', 180000);
+}
+
+async function setVideoFiles(files: string[]): Promise<void> {
+	const config = vscode.workspace.getConfiguration('vscodeBackground');
+	await config.update('videoFiles', files, vscode.ConfigurationTarget.Global);
+}
+
+async function updateOpacity(opacity: number): Promise<void> {
+	const config = vscode.workspace.getConfiguration('vscodeBackground');
+	await config.update('opacity', opacity, vscode.ConfigurationTarget.Global);
+}
+
+async function updateSwitchInterval(interval: number): Promise<void> {
+	const config = vscode.workspace.getConfiguration('vscodeBackground');
+	await config.update('switchInterval', interval, vscode.ConfigurationTarget.Global);
+}
+
+// 主题系统
+type ThemeName = 'glass' | 'matte';
+
+interface Theme {
+	name: ThemeName;
+	label: string;
+	description: string;
+	css: (opacity: number) => string;
+}
+
+// 定义所有可用主题
+const THEMES: Record<ThemeName, Theme> = {
+	glass: {
+		name: 'glass',
+		label: 'Glass (玻璃)',
+		description: 'Completely transparent - see the video clearly',
+		css: (opacity: number) => `
+.monaco-workbench {
+	opacity: ${opacity} !important;
+}
+`
+	},
+	matte: {
+		name: 'matte',
+		label: 'Matte (磨砂)',
+		description: 'Semi-transparent frosted glass effect',
+		css: (opacity: number) => `
+.monaco-workbench {
+	opacity: ${opacity} !important;
+	background: rgba(30, 30, 30, ${Math.max(0.3, (1 - opacity) * 0.5)}) !important;
+	backdrop-filter: blur(2px);
+}
+.monaco-workbench .part {
+	background: transparent !important;
+}
+.monaco-workbench .editor-container {
+	background: transparent !important;
+}
+body {
+	background: transparent !important;
+}
+`
+	}
+};
+
+function getTheme(): ThemeName {
+	const config = vscode.workspace.getConfiguration('vscodeBackground');
+	const theme = config.get<ThemeName>('theme', 'glass');
+	return theme;
+}
+
+async function setThemeConfig(theme: ThemeName): Promise<void> {
+	const config = vscode.workspace.getConfiguration('vscodeBackground');
+	await config.update('theme', theme, vscode.ConfigurationTarget.Global);
+}
+
+function generateCssForTheme(theme: ThemeName, opacity: number): string {
+	const themeObj = THEMES[theme] || THEMES.glass;
+	return themeObj.css(opacity);
+}
+
+// 辅助函数：将选中的视频文件复制到 background-videos 文件夹
+async function copyVideosToBackgroundFolder(selectedFiles: string[]): Promise<string[]> {
+	if (!workbenchHtmlPath) {
+		throw new Error('Cannot locate VSCode workbench files');
+	}
+
+	const videoDirPath = path.join(path.dirname(workbenchHtmlPath), 'background-videos');
+
+	// 创建文件夹
+	try {
+		if (!fs.existsSync(videoDirPath)) {
+			fs.mkdirSync(videoDirPath, { recursive: true });
+		}
+	} catch (error: any) {
+		if (error.code === 'EPERM' || error.code === 'EACCES') {
+			throw new Error('Permission denied - please run VSCode as Administrator');
+		}
+		throw error;
+	}
+
+	// 找到已有的最高索引
+	let nextIndex = 1;
+	try {
+		const files = fs.readdirSync(videoDirPath);
+		for (const file of files) {
+			const match = file.match(/^bg(\d+)\./);
+			if (match) {
+				const num = parseInt(match[1], 10);
+				nextIndex = Math.max(nextIndex, num + 1);
+			}
+		}
+	} catch (error) {
+		// 目录读取失败，使用默认值 1
+	}
+
+	// 复制文件
+	const copiedFiles: string[] = [];
+	const failedFiles: string[] = [];
+
+	for (const sourceFile of selectedFiles) {
+		try {
+			// 验证源文件是否存在
+			if (!fs.existsSync(sourceFile)) {
+				failedFiles.push(`${path.basename(sourceFile)} (file not found)`);
+				console.error(`Source file not found: ${sourceFile}`);
+				continue;
+			}
+
+			const ext = path.extname(sourceFile);
+			const destName = `bg${nextIndex}${ext}`;
+			const destPath = path.join(videoDirPath, destName);
+
+			fs.copyFileSync(sourceFile, destPath);
+			copiedFiles.push(destPath);
+			nextIndex++;
+
+			console.log(`Copied video: ${sourceFile} -> ${destPath}`);
+		} catch (error: any) {
+			const errorMsg = error.message || error.code || String(error);
+			failedFiles.push(`${path.basename(sourceFile)} (${errorMsg})`);
+			console.error(`Failed to copy file: ${sourceFile}`, error);
+
+			if (error.code === 'EPERM' || error.code === 'EACCES') {
+				throw new Error(`Permission denied - please run VSCode as Administrator`);
+			}
+		}
+	}
+
+	// 如果有复制失败的文件，提示用户
+	if (failedFiles.length > 0) {
+		const failureMessage = `Failed to copy ${failedFiles.length} file(s):\n${failedFiles.join('\n')}`;
+		if (copiedFiles.length === 0) {
+			throw new Error(failureMessage);
+		} else {
+			vscode.window.showWarningMessage(`Partially copied: ${copiedFiles.length} succeeded, ${failedFiles.length} failed`);
+		}
+	}
+
+	return copiedFiles;
+}
+
 // 生成应用脚本（内部函数）
 async function generateApplyScript(): Promise<string | null> {
 	const config = vscode.workspace.getConfiguration('vscodeBackground');
-	const videoFiles = config.get<string[]>('videoFiles', []);
-	const switchInterval = config.get<number>('switchInterval', 180000);
-	const opacity = config.get<number>('opacity', 0.3);
+	const videoFiles = getVideoFiles();
+	const switchInterval = getSwitchInterval();
+	const opacity = getOpacity();
 	const enabled = config.get<boolean>('enabled', true);
 
 	if (!workbenchHtmlPath || !workbenchCssPath) {
@@ -66,13 +239,40 @@ async function generateApplyScript(): Promise<string | null> {
 	const appRoot = vscode.env.appRoot;
 	const productJsonPath = path.join(appRoot, 'product.json');
 
-	// 准备视频文件复制命令
+	// 检查哪些文件需要复制（不在 background-videos 中的文件）
+	const filesToCopy: string[] = [];
+	for (const file of videoFiles) {
+		if (!file.includes('background-videos')) {
+			filesToCopy.push(file);
+		}
+	}
+
+	// 准备视频文件复制命令（仅复制需要复制的文件）
 	const videoCopyLines: string[] = [];
-	if (videoFiles.length > 0) {
-		videoFiles.forEach((file, index) => {
+	let nextBgIndex = 1;
+
+	// 查找已存在的 bg*.* 文件，从最高索引继续
+	try {
+		if (fs.existsSync(videosDir)) {
+			const files = fs.readdirSync(videosDir);
+			for (const file of files) {
+				const match = file.match(/^bg(\d+)\./);
+				if (match) {
+					const num = parseInt(match[1], 10);
+					nextBgIndex = Math.max(nextBgIndex, num + 1);
+				}
+			}
+		}
+	} catch (error) {
+		// 忽略错误，使用默认值
+	}
+
+	if (filesToCopy.length > 0) {
+		filesToCopy.forEach((file) => {
 			const ext = path.extname(file).toLowerCase().replace('.', '') || 'mp4';
-			const destFile = 'bg' + (index + 1) + '.' + ext;
+			const destFile = 'bg' + nextBgIndex + '.' + ext;
 			videoCopyLines.push('    Copy-Item -Path "' + file.replace(/\\/g, '\\\\') + '" -Destination "$videosDir\\\\' + destFile + '" -Force');
+			nextBgIndex++;
 		});
 	}
 
@@ -80,27 +280,16 @@ async function generateApplyScript(): Promise<string | null> {
 	const videoScript = generateVideoScript(switchInterval, opacity);
 	const cssRules = generateCssRules(opacity);
 
-	// 转义特殊字符
-	const escapedVideoScript = videoScript
-		.replace(/\\/g, '\\\\')
-		.replace(/"/g, '\\"')
-		.replace(/`/g, '``')
-		.replace(/\$/g, '`$');
-
-	const escapedCssRules = cssRules
-		.replace(/\\/g, '\\\\')
-		.replace(/"/g, '\\"');
-
 	const scriptLines: string[] = [
 		'# VSCode Background - Auto-Apply Script',
 		'# This script is automatically generated and executed',
 		'',
 		'$ErrorActionPreference = "Stop"',
 		'',
-		'$htmlPath = "' + workbenchHtmlPath.replace(/\\/g, '\\\\') + '"',
-		'$cssPath = "' + workbenchCssPath.replace(/\\/g, '\\\\') + '"',
-		'$videosDir = "' + videosDir.replace(/\\/g, '\\\\') + '"',
-		'$productJsonPath = "' + productJsonPath.replace(/\\/g, '\\\\') + '"',
+		"$htmlPath = '" + workbenchHtmlPath + "'",
+		"$cssPath = '" + workbenchCssPath + "'",
+		"$videosDir = '" + videosDir + "'",
+		"$productJsonPath = '" + productJsonPath + "'",
 		'$enabled = $' + (enabled ? 'true' : 'false'),
 		'',
 		'Write-Host "VSCode Background - Applying Settings..." -ForegroundColor Cyan',
@@ -112,56 +301,107 @@ async function generateApplyScript(): Promise<string | null> {
 		'',
 	];
 
-	if (enabled && videoFiles.length > 0) {
+	// 第一步：仅当有新文件需要复制时才执行复制
+	if (filesToCopy.length > 0) {
 		scriptLines.push(
 			'# Copy video files',
-			'Write-Host "Copying ' + videoFiles.length + ' video file(s)..." -ForegroundColor Yellow',
-			...videoCopyLines,
+			'Write-Host "Copying ' + filesToCopy.length + ' video file(s)..." -ForegroundColor Yellow'
+		);
+		filesToCopy.forEach((file) => {
+			const ext = path.extname(file).toLowerCase().replace('.', '') || 'mp4';
+			const destFile = 'bg' + nextBgIndex + '.' + ext;
+			scriptLines.push('Copy-Item -Path \'' + file + '\' -Destination "$videosDir\\' + destFile + '" -Force');
+			nextBgIndex++;
+		});
+		scriptLines.push('');
+	}
+
+	// 第二步：处理 HTML 文件
+	scriptLines.push(
+		'# Process HTML file',
+		'Write-Host "Processing workbench.html..." -ForegroundColor Yellow',
+		'$html = Get-Content $htmlPath -Raw -Encoding UTF8',
+		'',
+		'# Remove ALL existing injections (old and new formats)',
+		'$html = $html -replace "(?s)<!-- VSCODE-BACKGROUND-START -->.*?<!-- VSCODE-BACKGROUND-END -->", ""',
+		'$html = $html -replace "(?s)<!-- VSCode Background.*?-->", ""',
+		'# Remove orphaned brackets',
+		'$html = $html -replace "(?m)^\\s*\\[\\]\\s*$", ""',
+		'$html = $html -replace "(?m)^\\s*\\[\\s*$", ""',
+		'$html = $html -replace "(?m)^\\s*\\]\\s*$", ""',
+		''
+	);
+
+	// 只在启用且有视频时添加新的 HTML 注入
+	if (enabled && videoFiles.length > 0) {
+		// 使用 Here-String 来处理复杂的多行脚本（避免转义问题）
+		const videoScriptLines = videoScript.split('\n');
+		scriptLines.push(
+			'# Add injection to HTML',
+			'$videoScript = @"',
+			...videoScriptLines,
+			'"@',
 			'',
-			'# Read and modify HTML',
-			'Write-Host "Modifying workbench.html..." -ForegroundColor Yellow',
-			'$html = Get-Content $htmlPath -Raw -Encoding UTF8',
-			'',
-			'# Remove existing injection',
-			'$html = $html -replace "(?s)<!-- VSCODE-BACKGROUND-START -->.*?<!-- VSCODE-BACKGROUND-END -->", ""',
-			'',
-			'# Add new injection',
-			'$injection = "<!-- VSCODE-BACKGROUND-START -->" + "\\r\\n' + escapedVideoScript + '\\r\\n" + "<!-- VSCODE-BACKGROUND-END -->"',
-			'$html = $html -replace "(</body>)", "$injection`r`n`$1"',
-			'',
-			'[System.IO.File]::WriteAllText($htmlPath, $html, [System.Text.Encoding]::UTF8)',
-			'Write-Host "HTML updated!" -ForegroundColor Green',
-			'',
-			'# Modify CSS',
-			'Write-Host "Modifying CSS..." -ForegroundColor Yellow',
-			'$css = Get-Content $cssPath -Raw -Encoding UTF8',
-			'',
-			'# Remove existing CSS',
-			'$css = $css -replace "(?s)/\\* VSCODE-BACKGROUND-CSS-START \\*/.*?/\\* VSCODE-BACKGROUND-CSS-END \\*/", ""',
-			'',
-			'# Add new CSS',
-			'$cssInjection = "/* VSCODE-BACKGROUND-CSS-START */" + "\\r\\n' + escapedCssRules + '\\r\\n" + "/* VSCODE-BACKGROUND-CSS-END */"',
-			'$css = $css + "`r`n" + $cssInjection',
-			'',
-			'[System.IO.File]::WriteAllText($cssPath, $css, [System.Text.Encoding]::UTF8)',
-			'Write-Host "CSS updated!" -ForegroundColor Green',
+			'$injection = "<!-- VSCODE-BACKGROUND-START -->" + [System.Environment]::NewLine + $videoScript + [System.Environment]::NewLine + "<!-- VSCODE-BACKGROUND-END -->"',
+			'$html = $html -replace "(<body[^>]*>)", "`$1`r`n$injection"',
+			'Write-Host "HTML injection added" -ForegroundColor Green',
+			''
+		);
+	} else if (enabled && videoFiles.length === 0) {
+		scriptLines.push(
+			'Write-Host "WARNING: No video files configured" -ForegroundColor Yellow',
 			''
 		);
 	} else {
 		scriptLines.push(
-			'# Remove injection (disabled or no videos)',
-			'Write-Host "Removing background injection..." -ForegroundColor Yellow',
-			'$html = Get-Content $htmlPath -Raw -Encoding UTF8',
-			'$html = $html -replace "(?s)<!-- VSCODE-BACKGROUND-START -->.*?<!-- VSCODE-BACKGROUND-END -->", ""',
-			'[System.IO.File]::WriteAllText($htmlPath, $html, [System.Text.Encoding]::UTF8)',
-			'',
-			'$css = Get-Content $cssPath -Raw -Encoding UTF8',
-			'$css = $css -replace "(?s)/\\* VSCODE-BACKGROUND-CSS-START \\*/.*?/\\* VSCODE-BACKGROUND-CSS-END \\*/", ""',
-			'[System.IO.File]::WriteAllText($cssPath, $css, [System.Text.Encoding]::UTF8)',
-			'Write-Host "Background removed!" -ForegroundColor Green',
+			'Write-Host "HTML injection removed (disabled or no videos)" -ForegroundColor Green',
 			''
 		);
 	}
+
+	scriptLines.push(
+		'[System.IO.File]::WriteAllText($htmlPath, $html, [System.Text.Encoding]::UTF8)',
+		''
+	);
+
+	// 第三步：处理 CSS 文件（始终处理，确保单次注入）
+	scriptLines.push(
+		'# Process CSS file',
+		'Write-Host "Processing CSS..." -ForegroundColor Yellow',
+		'$css = Get-Content $cssPath -Raw -Encoding UTF8',
+		'',
+		'# Remove ALL existing CSS injections (old and new formats)',
+		'$css = $css -replace "(?s)/\\* VSCODE-BACKGROUND-CSS-START \\*/.*?/\\* VSCODE-BACKGROUND-CSS-END \\*/", ""',
+		'$css = $css -replace "(?s)/\\* VSCode Background Extension - START \\*/.*?/\\* VSCode Background Extension - END \\*/", ""',
+		''
+	);
+
+	// 只在启用且有视频时添加新的 CSS 注入
+	if (enabled && videoFiles.length > 0) {
+		// 使用 Here-String 处理 CSS
+		const cssRulesLines = cssRules.split('\n');
+		scriptLines.push(
+			'# Add CSS injection',
+			'$cssRules = @"',
+			...cssRulesLines,
+			'"@',
+			'',
+			'$cssInjection = "/* VSCODE-BACKGROUND-CSS-START */" + [System.Environment]::NewLine + $cssRules + [System.Environment]::NewLine + "/* VSCODE-BACKGROUND-CSS-END */"',
+			'$css = $css + "`r`n" + $cssInjection',
+			'Write-Host "CSS injection added" -ForegroundColor Green',
+			''
+		);
+	} else {
+		scriptLines.push(
+			'Write-Host "CSS injection removed (disabled or no videos)" -ForegroundColor Green',
+			''
+		);
+	}
+
+	scriptLines.push(
+		'[System.IO.File]::WriteAllText($cssPath, $css, [System.Text.Encoding]::UTF8)',
+		''
+	);
 
 	scriptLines.push(
 		'Write-Host ""',
@@ -184,12 +424,34 @@ async function runApplyScript(): Promise<boolean> {
 	fs.writeFileSync(scriptPath, scriptContent, 'utf8');
 
 	return new Promise((resolve) => {
-		const command = `powershell -Command "Start-Process powershell -ArgumentList '-ExecutionPolicy Bypass -File \\"${scriptPath}\\"' -Verb RunAs -Wait"`;
+		// 方法1: 直接运行 PowerShell 脚本（在当前用户上下文中，可能需要额外权限提示）
+		// 方法2: 使用 Start-Process -Verb RunAs 在新 PowerShell 窗口中运行
+		// 为确保文件写入成功，我们直接使用 powershell.exe -File，让 Windows 处理权限提示
+		const command = 'powershell.exe';
+		const args = [
+			'-NoProfile',
+			'-ExecutionPolicy', 'Bypass',
+			'-File', scriptPath
+		];
 
-		exec(command, (error) => {
+		exec(`${command} ${args.map(a => `"${a}"`).join(' ')}`, (error, stdout, stderr) => {
 			if (error) {
-				vscode.window.showErrorMessage('Failed to apply settings: ' + error.message + '. Make sure to accept the Administrator prompt.');
-				resolve(false);
+				// 检查是否是权限问题
+				if (stderr && stderr.includes('Access Denied')) {
+					// 需要以管理员身份运行
+					const adminCommand = `powershell -Command "Start-Process powershell -ArgumentList '-NoProfile -ExecutionPolicy Bypass -File \\\"${scriptPath}\\\"' -Verb RunAs -Wait"`;
+					exec(adminCommand, (adminError) => {
+						if (adminError) {
+							vscode.window.showErrorMessage('Failed to apply settings with admin privileges: ' + adminError.message + '. Please run VSCode as Administrator and try again.');
+							resolve(false);
+						} else {
+							resolve(true);
+						}
+					});
+				} else {
+					vscode.window.showErrorMessage('Failed to apply settings: ' + (stderr || error.message) + '. Make sure to accept the Administrator prompt.');
+					resolve(false);
+				}
 			} else {
 				resolve(true);
 			}
@@ -197,8 +459,8 @@ async function runApplyScript(): Promise<boolean> {
 	});
 }
 
-// 检查当前状态
-async function checkCurrentStatus(): Promise<string> {
+// 检查当前状态（从文件中读取真实数据）
+async function checkCurrentStatus(updateConfig: boolean = false): Promise<string> {
 	if (!workbenchHtmlPath || !fs.existsSync(workbenchHtmlPath)) {
 		return '❌ VSCode workbench files not found';
 	}
@@ -211,23 +473,55 @@ async function checkCurrentStatus(): Promise<string> {
 			return '⚪ Not injected - Background is disabled';
 		}
 
-		// 提取视频数量
-		const videoMatch = html.match(/const DISCOVERY_MAX = (\d+)/);
-		const intervalMatch = html.match(/const switchInterval = (\d+)/);
-		const opacityMatch = html.match(/opacity: ([\d.]+)/);
+		// 从文件中提取真实数据
+		let videoCount = 0;
+		let realOpacity = 0.8;
+		let realSwitchInterval = 180000;
 
-		let status = '✅ Background active';
+		// 提取 opacity（从 CSS 或 video 标签中）
+		const opacityMatch = html.match(/opacity: ([\d.]+)/);
+		if (opacityMatch) {
+			realOpacity = parseFloat(opacityMatch[1]);
+		}
+
+		// 提取 switchInterval
+		const intervalMatch = html.match(/const switchInterval = (\d+)/);
 		if (intervalMatch) {
-			const interval = parseInt(intervalMatch[1]);
-			if (interval === 0) {
-				status += ' | Infinite loop';
-			} else {
-				status += ' | Switch: ' + (interval / 1000) + 's';
+			realSwitchInterval = parseInt(intervalMatch[1], 10);
+		}
+
+		// 统计 background-videos 文件夹中的视频文件
+		if (workbenchHtmlPath) {
+			const videoDirPath = path.join(path.dirname(workbenchHtmlPath), 'background-videos');
+			if (fs.existsSync(videoDirPath)) {
+				try {
+					const files = fs.readdirSync(videoDirPath);
+					for (const file of files) {
+						if (/^bg\d+\.(mp4|webm|ogg)$/i.test(file)) {
+							videoCount++;
+						}
+					}
+				} catch (error) {
+					// 忽略目录读取错误
+				}
 			}
 		}
-		if (opacityMatch) {
-			status += ' | Opacity: ' + opacityMatch[1];
+
+		// 如果需要，同步真实数据到配置
+		if (updateConfig) {
+			await updateOpacity(realOpacity);
+			await updateSwitchInterval(realSwitchInterval);
+			console.log(`Synced config from file: opacity=${realOpacity}, switchInterval=${realSwitchInterval}`);
 		}
+
+		let status = '✅ Background active';
+		status += ` | Videos: ${videoCount}`;
+		if (realSwitchInterval === 0) {
+			status += ' | Infinite loop mode';
+		} else {
+			status += ` | Switch: ${(realSwitchInterval / 1000).toFixed(0)}s`;
+		}
+		status += ` | Opacity: ${(realOpacity * 100).toFixed(0)}%`;
 
 		return status;
 	} catch (error) {
@@ -293,14 +587,31 @@ export function activate(context: vscode.ExtensionContext) {
 
 	const enableBackground = vscode.commands.registerCommand('vscode-background.enable', async () => {
 		try {
-			const videoFiles = await selectVideoFiles();
-			if (videoFiles && videoFiles.length > 0) {
-				await applyVideoBackground(videoFiles);
-				vscode.window.showInformationMessage('Video background enabled! Please restart VSCode to see changes.', 'Restart').then(selection => {
-					if (selection === 'Restart') {
-						vscode.commands.executeCommand('workbench.action.reloadWindow');
-					}
-				});
+			const config = vscode.workspace.getConfiguration('vscodeBackground');
+			const videoFiles = getVideoFiles();
+
+			if (videoFiles.length === 0) {
+				const action = await vscode.window.showInformationMessage(
+					'No video files configured. Please add videos first.',
+					'Add Videos',
+					'Cancel'
+				);
+				if (action === 'Add Videos') {
+					await vscode.commands.executeCommand('vscode-background.addVideos');
+				}
+				return;
+			}
+
+			await config.update('enabled', true, vscode.ConfigurationTarget.Global);
+
+			const action = await vscode.window.showInformationMessage(
+				`Ready to enable video background with ${videoFiles.length} video(s). Apply settings now?`,
+				'Apply',
+				'Cancel'
+			);
+
+			if (action === 'Apply') {
+				await vscode.commands.executeCommand('vscode-background.applySettings');
 			}
 		} catch (error) {
 			vscode.window.showErrorMessage(`Failed to enable background: ${error}`);
@@ -322,7 +633,7 @@ export function activate(context: vscode.ExtensionContext) {
 
 	const configureBackground = vscode.commands.registerCommand('vscode-background.configure', async () => {
 		const config = vscode.workspace.getConfiguration('vscodeBackground');
-		const currentFiles = config.get<string[]>('videoFiles', []);
+		const currentFiles = getVideoFiles();
 
 		vscode.window.showInformationMessage(`Current video files: ${currentFiles.length > 0 ? currentFiles.join(', ') : 'None'}`, 'Select Videos', 'Cancel').then(selection => {
 			if (selection === 'Select Videos') {
@@ -449,45 +760,6 @@ export function activate(context: vscode.ExtensionContext) {
 		vscode.window.showInformationMessage('Diagnostics information shown in output panel');
 	});
 
-	// 监听配置变化 - 自动应用（如果启用）
-	const configWatcher = vscode.workspace.onDidChangeConfiguration(async (e) => {
-		if (e.affectsConfiguration('vscodeBackground')) {
-			const config = vscode.workspace.getConfiguration('vscodeBackground');
-			const autoApply = config.get<boolean>('autoApply', true);
-
-			// 跳过 currentStatus 的变化（避免循环）
-			if (e.affectsConfiguration('vscodeBackground.currentStatus')) {
-				return;
-			}
-
-			// 如果启用了自动应用
-			if (autoApply) {
-				// 给用户一点时间看配置变化，然后自动应用
-				setTimeout(async () => {
-					const action = await vscode.window.showInformationMessage(
-						'Settings changed. Apply now?',
-						'Apply',
-						'Later'
-					);
-
-					if (action === 'Apply') {
-						vscode.commands.executeCommand('vscode-background.applySettings');
-					}
-				}, 1000);
-			} else {
-				// 提示用户手动应用
-				vscode.window.showInformationMessage(
-					'Settings changed. Run "Apply Settings" command to apply.',
-					'Apply Now'
-				).then(action => {
-					if (action === 'Apply Now') {
-						vscode.commands.executeCommand('vscode-background.applySettings');
-					}
-				});
-			}
-		}
-	});
-
 	// 添加视频命令 - Windows 上使用原生文件对话框
 	const addVideos = vscode.commands.registerCommand('vscode-background.addVideos', async () => {
 		try {
@@ -516,20 +788,29 @@ export function activate(context: vscode.ExtensionContext) {
 					if (selectedFiles) {
 						const newFiles = selectedFiles.split('|').filter(f => f.length > 0);
 						if (newFiles.length > 0) {
-							const config = vscode.workspace.getConfiguration('vscodeBackground');
-							const currentFiles = config.get<string[]>('videoFiles', []);
+							try {
+								// 复制文件到 background-videos 文件夹
+								const copiedFilePaths = await copyVideosToBackgroundFolder(newFiles);
 
-							// 合并并去重
-							const allFiles = [...currentFiles];
-							for (const file of newFiles) {
-								if (!allFiles.includes(file)) {
-									allFiles.push(file);
+								// 更新配置：获取当前配置，添加复制后的文件路径
+								const currentFiles = getVideoFiles();
+								const allFiles = [...currentFiles, ...copiedFilePaths];
+								await setVideoFiles(allFiles);
+
+								// 显示成功消息
+								const fileNames = newFiles.map(f => path.basename(f)).join(', ');
+								const action = await vscode.window.showInformationMessage(
+									`Added ${newFiles.length} video(s) to background folder: ${fileNames}\n\nApply settings now?`,
+									'Apply',
+									'Later'
+								);
+
+								if (action === 'Apply') {
+									await vscode.commands.executeCommand('vscode-background.applySettings');
 								}
+							} catch (error) {
+								vscode.window.showErrorMessage(`Failed to copy videos: ${error}`);
 							}
-
-							await config.update('videoFiles', allFiles, vscode.ConfigurationTarget.Global);
-							const fileNames = newFiles.map(f => path.basename(f)).join(', ');
-							vscode.window.showInformationMessage(`Added ${newFiles.length} video(s): ${fileNames}`);
 						}
 					}
 				});
@@ -555,21 +836,31 @@ export function activate(context: vscode.ExtensionContext) {
 
 		const fileUris = await vscode.window.showOpenDialog(options);
 		if (fileUris && fileUris.length > 0) {
-			const config = vscode.workspace.getConfiguration('vscodeBackground');
-			const currentFiles = config.get<string[]>('videoFiles', []);
-			const newFiles = fileUris.map(uri => uri.fsPath);
+			try {
+				const newFiles = fileUris.map(uri => uri.fsPath);
 
-			// 合并并去重
-			const allFiles = [...currentFiles];
-			for (const file of newFiles) {
-				if (!allFiles.includes(file)) {
-					allFiles.push(file);
+				// 复制文件到 background-videos 文件夹
+				const copiedFilePaths = await copyVideosToBackgroundFolder(newFiles);
+
+				// 更新配置：获取当前配置，添加复制后的文件路径
+				const currentFiles = getVideoFiles();
+				const allFiles = [...currentFiles, ...copiedFilePaths];
+				await setVideoFiles(allFiles);
+
+				// 显示成功消息
+				const fileNames = newFiles.map(f => path.basename(f)).join(', ');
+				const action = await vscode.window.showInformationMessage(
+					`Added ${newFiles.length} video(s) to background folder: ${fileNames}\n\nApply settings now?`,
+					'Apply',
+					'Later'
+				);
+
+				if (action === 'Apply') {
+					await vscode.commands.executeCommand('vscode-background.applySettings');
 				}
+			} catch (error) {
+				vscode.window.showErrorMessage(`Failed to copy videos: ${error}`);
 			}
-
-			await config.update('videoFiles', allFiles, vscode.ConfigurationTarget.Global);
-			const fileNames = newFiles.map(f => path.basename(f)).join(', ');
-			vscode.window.showInformationMessage(`Added ${newFiles.length} video(s): ${fileNames}`);
 		}
 	}
 
@@ -577,7 +868,7 @@ export function activate(context: vscode.ExtensionContext) {
 	const removeVideo = vscode.commands.registerCommand('vscode-background.removeVideo', async () => {
 		try {
 			const config = vscode.workspace.getConfiguration('vscodeBackground');
-			const currentFiles = config.get<string[]>('videoFiles', []);
+			const currentFiles = getVideoFiles();
 
 			if (currentFiles.length === 0) {
 				vscode.window.showInformationMessage('No videos in the list.');
@@ -599,7 +890,7 @@ export function activate(context: vscode.ExtensionContext) {
 			if (selected && selected.length > 0) {
 				const filesToRemove = selected.map(item => item.filePath);
 				const newFiles = currentFiles.filter(f => !filesToRemove.includes(f));
-				await config.update('videoFiles', newFiles, vscode.ConfigurationTarget.Global);
+				await setVideoFiles(newFiles);
 
 				const removedNames = selected.map(s => path.basename(s.filePath)).join(', ');
 				vscode.window.showInformationMessage(`Removed ${selected.length} video(s): ${removedNames}`);
@@ -612,7 +903,7 @@ export function activate(context: vscode.ExtensionContext) {
 	// 管理视频命令（显示当前列表并提供操作选项）
 	const manageVideos = vscode.commands.registerCommand('vscode-background.manageVideos', async () => {
 		const config = vscode.workspace.getConfiguration('vscodeBackground');
-		const currentFiles = config.get<string[]>('videoFiles', []);
+		const currentFiles = getVideoFiles();
 
 		if (currentFiles.length === 0) {
 			const action = await vscode.window.showInformationMessage(
@@ -709,7 +1000,7 @@ export function activate(context: vscode.ExtensionContext) {
 	// 设置无限循环命令
 	const setInfiniteLoop = vscode.commands.registerCommand('vscode-background.setInfiniteLoop', async () => {
 		const config = vscode.workspace.getConfiguration('vscodeBackground');
-		const current = config.get<number>('switchInterval', 30000);
+		const current = getSwitchInterval();
 
 		if (current === 0) {
 			// 当前是无限循环，询问是否恢复
@@ -727,20 +1018,125 @@ export function activate(context: vscode.ExtensionContext) {
 			else if (action === '5 minutes') newInterval = 300000;
 
 			if (newInterval > 0) {
-				await config.update('switchInterval', newInterval, vscode.ConfigurationTarget.Global);
+				await updateSwitchInterval(newInterval);
 				vscode.window.showInformationMessage(`Switch interval set to ${newInterval / 1000} seconds.`);
 			}
 		} else {
 			// 当前不是无限循环，设置为无限循环
-			await config.update('switchInterval', 0, vscode.ConfigurationTarget.Global);
+			await updateSwitchInterval(0);
 			vscode.window.showInformationMessage('Infinite loop enabled! Video will loop forever without switching.');
+		}
+	});
+
+	// 设置不透明度命令
+	const setOpacity = vscode.commands.registerCommand('vscode-background.setOpacity', async () => {
+		const config = vscode.workspace.getConfiguration('vscodeBackground');
+		const current = getOpacity();
+
+		const input = await vscode.window.showInputBox({
+			prompt: 'Set background opacity (0 - 1)',
+			value: String(current),
+			validateInput: (value) => {
+				const num = Number(value);
+				if (Number.isNaN(num)) return 'Please enter a number.';
+				if (num < 0 || num > 1) return 'Opacity must be between 0 and 1.';
+				return null;
+			}
+		});
+
+		if (!input) return;
+		const opacity = Number(input);
+		await updateOpacity(opacity);
+
+		const action = await vscode.window.showInformationMessage(
+			`Opacity set to ${opacity}. Apply settings now?`,
+			'Apply',
+			'Later'
+		);
+
+		if (action === 'Apply') {
+			vscode.commands.executeCommand('vscode-background.applySettings');
+		}
+	});
+
+	// 设置切换间隔命令
+	const setSwitchInterval = vscode.commands.registerCommand('vscode-background.setSwitchInterval', async () => {
+		const config = vscode.workspace.getConfiguration('vscodeBackground');
+		const current = getSwitchInterval();
+
+		const input = await vscode.window.showInputBox({
+			prompt: 'Set switch interval in ms (0 = infinite loop, min 10000)',
+			value: String(current),
+			validateInput: (value) => {
+				const num = Number(value);
+				if (!Number.isFinite(num)) return 'Please enter a valid number.';
+				if (num !== 0 && num < 10000) return 'Minimum is 10000 ms (10 seconds).';
+				if (num < 0) return 'Interval cannot be negative.';
+				return null;
+			}
+		});
+
+		if (!input) return;
+		const interval = Number(input);
+		await updateSwitchInterval(interval);
+
+		const action = await vscode.window.showInformationMessage(
+			`Switch interval set to ${interval} ms. Apply settings now?`,
+			'Apply',
+			'Later'
+		);
+
+		if (action === 'Apply') {
+			vscode.commands.executeCommand('vscode-background.applySettings');
+		}
+	});
+
+	// 显示 background-videos 文件夹路径
+	const showVideosFolder = vscode.commands.registerCommand('vscode-background.showVideosFolder', async () => {
+		if (!workbenchHtmlPath) {
+			vscode.window.showErrorMessage('Cannot locate VSCode workbench files.');
+			return;
+		}
+		const videosDir = path.join(path.dirname(workbenchHtmlPath), 'background-videos');
+		vscode.window.showInformationMessage(
+			`Videos folder: ${videosDir}\nManual files must be named bg1.mp4, bg2.mp4, ... in order.`
+		);
+	});
+
+	// 设置主题命令
+	const setTheme = vscode.commands.registerCommand('vscode-background.setTheme', async () => {
+		const currentTheme = getTheme();
+
+		const items = Object.values(THEMES).map(theme => ({
+			label: theme.label,
+			description: theme.description,
+			themeName: theme.name,
+			picked: theme.name === currentTheme
+		}));
+
+		const selected = await vscode.window.showQuickPick(items, {
+			placeHolder: 'Select a theme for your video background'
+		});
+
+		if (!selected) return;
+
+		await setThemeConfig(selected.themeName);
+
+		const action = await vscode.window.showInformationMessage(
+			`Theme changed to ${selected.label}. Apply settings now?`,
+			'Apply',
+			'Later'
+		);
+
+		if (action === 'Apply') {
+			vscode.commands.executeCommand('vscode-background.applySettings');
 		}
 	});
 
 	// 应用设置命令 - 自动生成并运行脚本
 	const applySettings = vscode.commands.registerCommand('vscode-background.applySettings', async () => {
 		const config = vscode.workspace.getConfiguration('vscodeBackground');
-		const videoFiles = config.get<string[]>('videoFiles', []);
+		const videoFiles = getVideoFiles();
 		const enabled = config.get<boolean>('enabled', true);
 
 		if (enabled && videoFiles.length === 0) {
@@ -774,12 +1170,16 @@ export function activate(context: vscode.ExtensionContext) {
 		}
 	});
 
-	// 刷新状态命令
+	// 刷新状态命令 - 从文件中读取真实数据并同步到配置
 	const refreshStatus = vscode.commands.registerCommand('vscode-background.refreshStatus', async () => {
-		const status = await checkCurrentStatus();
-		const config = vscode.workspace.getConfiguration('vscodeBackground');
-		await config.update('currentStatus', status, vscode.ConfigurationTarget.Global);
-		vscode.window.showInformationMessage('Status refreshed: ' + status);
+		try {
+			const status = await checkCurrentStatus(true); // 传入 true 参数以同步文件数据到配置
+			const config = vscode.workspace.getConfiguration('vscodeBackground');
+			await config.update('currentStatus', status, vscode.ConfigurationTarget.Global);
+			vscode.window.showInformationMessage('✅ Status refreshed and synced from file:\n' + status);
+		} catch (error) {
+			vscode.window.showErrorMessage('Failed to refresh status: ' + error);
+		}
 	});
 
 	// 清理命令 - 卸载插件前运行
@@ -798,7 +1198,7 @@ export function activate(context: vscode.ExtensionContext) {
 			// 清理配置
 			const config = vscode.workspace.getConfiguration('vscodeBackground');
 			await config.update('enabled', false, vscode.ConfigurationTarget.Global);
-			await config.update('videoFiles', [], vscode.ConfigurationTarget.Global);
+			await setVideoFiles([]);
 
 			vscode.window.showInformationMessage(
 				'Cleanup complete! You can now safely uninstall the extension. Please restart VSCode.',
@@ -809,14 +1209,14 @@ export function activate(context: vscode.ExtensionContext) {
 				}
 			});
 		} catch (error) {
-			vscode.window.showErrorMessage(`Cleanup failed: ${error}. Try running 'Grant Permissions' first.`);
+			vscode.window.showErrorMessage(`Cleanup failed: ${error}. Try running VSCode as Administrator.`);
 		}
 	});
 
 	// 启动时检查是否已启用背景并更新状态
 	const config = vscode.workspace.getConfiguration('vscodeBackground');
 	isBackgroundEnabled = config.get<boolean>('enabled', false);
-	
+
 	// 初始化状态
 	checkCurrentStatus().then(status => {
 		config.update('currentStatus', status, vscode.ConfigurationTarget.Global);
@@ -827,12 +1227,15 @@ export function activate(context: vscode.ExtensionContext) {
 		disableBackground,
 		configureBackground,
 		diagnostics,
-		configWatcher,
 		addVideos,
 		removeVideo,
 		manageVideos,
 		fixChecksums,
 		setInfiniteLoop,
+		setOpacity,
+		setSwitchInterval,
+		showVideosFolder,
+		setTheme,
 		applySettings,
 		refreshStatus,
 		cleanup
@@ -840,6 +1243,45 @@ export function activate(context: vscode.ExtensionContext) {
 }
 
 async function selectVideoFiles(): Promise<string[] | undefined> {
+	// Windows 系统使用原生文件选择对话框（高清晰度）
+	if (process.platform === 'win32') {
+		return new Promise((resolve) => {
+			const psScript = `
+			Add-Type -AssemblyName System.Windows.Forms
+			$dialog = New-Object System.Windows.Forms.OpenFileDialog
+			$dialog.Filter = 'Video Files (*.mp4;*.webm;*.ogg)|*.mp4;*.webm;*.ogg|All Files (*.*)|*.*'
+			$dialog.Multiselect = $true
+			$dialog.Title = 'Select Video Files for Background'
+			if ($dialog.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
+				$dialog.FileNames -join '|'
+			}
+			`.trim();
+
+			exec(`powershell -Command "${psScript.replace(/"/g, '\\"').replace(/\n/g, '; ')}"`, (error, stdout, stderr) => {
+				if (error) {
+					console.error('PowerShell error:', error);
+					// 回退到 VSCode 对话框
+					fallbackSelectVideoFiles().then(resolve);
+					return;
+				}
+
+				const selectedFiles = stdout.trim();
+				if (selectedFiles) {
+					const files = selectedFiles.split('|').filter(f => f.length > 0);
+					resolve(files.length > 0 ? files : undefined);
+				} else {
+					resolve(undefined);
+				}
+			});
+		});
+	} else {
+		// 非 Windows 系统使用 VSCode 对话框
+		return fallbackSelectVideoFiles();
+	}
+}
+
+// 回退方法：使用 VSCode 文件对话框
+async function fallbackSelectVideoFiles(): Promise<string[] | undefined> {
 	const options: vscode.OpenDialogOptions = {
 		canSelectMany: true,
 		openLabel: 'Select Video Files',
@@ -881,8 +1323,8 @@ async function applyVideoBackground(videoFiles: string[]): Promise<void> {
 	}
 
 	const config = vscode.workspace.getConfiguration('vscodeBackground');
-	const switchInterval = config.get<number>('switchInterval', 180000);
-	const opacity = config.get<number>('opacity', 0.8);
+	const switchInterval = getSwitchInterval();
+	const opacity = getOpacity();
 
 	console.log('Config - switchInterval:', switchInterval, 'opacity:', opacity);
 
@@ -944,6 +1386,12 @@ async function applyVideoBackground(videoFiles: string[]): Promise<void> {
 		workbenchHtml = workbenchHtml.replace(regex, '');
 		console.log('Removed existing injection, new length:', workbenchHtml.length);
 	}
+
+	// Remove orphaned brackets from previous bad injections
+	workbenchHtml = workbenchHtml.replace(/^\s*\[\]\s*$/gm, '');
+	workbenchHtml = workbenchHtml.replace(/^\s*\[\s*$/gm, '');
+	workbenchHtml = workbenchHtml.replace(/^\s*\]\s*$/gm, '');
+	console.log('Cleaned orphaned brackets');
 
 	const videoScript = generateVideoScript(switchInterval, opacity);
 	console.log('Generated video script length:', videoScript.length);
@@ -1085,7 +1533,7 @@ async function applyVideoBackground(videoFiles: string[]): Promise<void> {
 	}
 
 	// Save configuration
-	await config.update('videoFiles', videoFiles, vscode.ConfigurationTarget.Global);
+	await setVideoFiles(videoFiles);
 	await config.update('enabled', true, vscode.ConfigurationTarget.Global);
 	isBackgroundEnabled = true;
 
@@ -1093,187 +1541,67 @@ async function applyVideoBackground(videoFiles: string[]): Promise<void> {
 }
 
 function generateVideoScript(switchInterval: number, opacity: number): string {
-	// 处理 switchInterval：0 表示无限循环（不切换），否则最小 5 秒
 	const effectiveInterval = switchInterval === 0 ? 0 : Math.max(switchInterval, 5000);
-
 	return `
-	<video id="bgVideo" loop autoplay muted playsinline
+	<video id="bgVideo" muted playsinline
 		style="position: fixed; inset: 0; width: 100vw; height: 100vh; object-fit: cover; object-position: center; z-index: -100; opacity: ${opacity};">
 	</video>
-
 	<script>
-		const VIDEO_BASENAME = 'bg';
-		const VIDEO_EXT = 'mp4';
-		const DISCOVERY_MAX = 100;
-		const INFINITE_LOOP = ${effectiveInterval === 0}; // 无限循环模式
-
-		let videoList = [];
-		let currentIndex = 0;
-		const videoElement = document.getElementById('bgVideo');
+		const bgVideo = document.getElementById('bgVideo') || (() => {
+			const v = document.createElement('video');
+			v.id = 'bgVideo';
+			v.muted = true;
+			v.playsinline = true;
+			v.style.cssText = 'position: fixed; inset: 0; width: 100vw; height: 100vh; object-fit: cover; object-position: center; z-index: -100; opacity: ${opacity};';
+			document.body.appendChild(v);
+			return v;
+		})();
+		let currentIndex = 1;
+		let maxIndex = 1;
 		const switchInterval = ${effectiveInterval};
-		let timer = null;
-		let switching = false;
-
-		function sleep(ms) {
-			return new Promise(resolve => setTimeout(resolve, ms));
-		}
-
-		async function ensureVideoPlaying({ retries = 3 } = {}) {
-			for (let attempt = 0; attempt < retries; attempt++) {
+		async function findVideos() {
+			for (let i = 2; i <= 100; i++) {
 				try {
-					await videoElement.play();
-				} catch (err) {
-					// ignore and retry
+					const response = await fetch('./background-videos/bg' + i + '.mp4', { method: 'HEAD' });
+					if (!response.ok) break;
+					maxIndex = i;
+				} catch (_) {
+					break;
 				}
-
-				if (!videoElement.paused) return true;
-				await sleep(250 * (attempt + 1));
-			}
-
-			return !videoElement.paused;
-		}
-
-		async function mediaExists(src) {
-			try {
-				const headResp = await fetch(src, { method: 'HEAD', cache: 'no-store' });
-				return headResp.ok;
-			} catch (_) {
-				// ignore
-			}
-
-			try {
-				const resp = await fetch(src, {
-					method: 'GET',
-					cache: 'no-store',
-					headers: { 'Range': 'bytes=0-0' }
-				});
-				return resp.ok;
-			} catch (_) {
-				return false;
 			}
 		}
-
-		async function discoverVideosInFolder() {
-			const discovered = [];
-			for (let i = 1; i <= DISCOVERY_MAX; i++) {
-				const src = \`./background-videos/\${VIDEO_BASENAME}\${i}.\${VIDEO_EXT}\`;
-				const exists = await mediaExists(src);
-				if (!exists) break;
-				discovered.push(src);
-			}
-			return discovered;
+		function playVideo(index) {
+			bgVideo.setAttribute('loop', 'loop');
+			bgVideo.setAttribute('autoplay', 'autoplay');
+			bgVideo.src = './background-videos/bg' + index + '.mp4';
+			bgVideo.load();
+			bgVideo.play().catch(e => console.warn('Play failed:', e));
 		}
-
-		async function playVideoByIndex(index) {
-			currentIndex = (index + videoList.length) % videoList.length;
-			const src = videoList[currentIndex];
-
-			try {
-				videoElement.pause();
-				videoElement.removeAttribute('src');
-				videoElement.load();
-			} catch (_) {
-				// ignore
-			}
-
-			videoElement.muted = true;
-			videoElement.volume = 0;
-			videoElement.setAttribute('muted', '');
-
-			videoElement.src = src;
-			videoElement.load();
-
-			const started = await ensureVideoPlaying({ retries: 3 });
-			if (!started) {
-				throw new Error('Failed to start video playback');
-			}
+		async function switchVideo() {
+			if (maxIndex <= 1) return;
+			currentIndex = currentIndex % maxIndex + 1;
+			playVideo(currentIndex);
 		}
-
-		async function initVideo() {
-			videoList = await discoverVideosInFolder();
-			if (!videoList.length) {
-				console.error('No video files found');
-				return;
-			}
-
-			try {
-				await playVideoByIndex(0);
-			} catch (err) {
-				console.error('Failed to initialize video:', err);
-				await switchToNextVideo();
-			}
-		}
-
-		async function switchToNextVideo() {
-			if (!videoList.length) return;
-			if (switching) return;
-			switching = true;
-
-			try {
-				const startIndex = currentIndex;
-				for (let tries = 0; tries < videoList.length; tries++) {
-					const nextIndex = (startIndex + 1 + tries) % videoList.length;
-					try {
-						await playVideoByIndex(nextIndex);
-						return;
-					} catch (err) {
-						console.error('Failed to switch video:', err);
-					}
+		async function init() {
+			await findVideos();
+			if (maxIndex >= 1) {
+				playVideo(1);
+				if (switchInterval > 0) {
+					setInterval(switchVideo, switchInterval);
 				}
-			} finally {
-				switching = false;
 			}
 		}
-
-		function startSwitchTimer() {
-			if (INFINITE_LOOP) return; // 无限循环模式不启动定时器
-			if (timer) clearInterval(timer);
-			timer = setInterval(() => {
-				switchToNextVideo();
-			}, switchInterval);
+		if (document.readyState === 'loading') {
+			document.addEventListener('DOMContentLoaded', init);
+		} else {
+			init();
 		}
-
-		window.addEventListener('load', () => {
-			initVideo();
-			if (!INFINITE_LOOP) {
-				startSwitchTimer();
-			}
-			console.log(INFINITE_LOOP ? 'Infinite loop mode - video will loop forever' : 'Switch timer started: ' + switchInterval + 'ms');
-		});
-
-		videoElement.addEventListener('error', (err) => {
-			console.error('Video loading error:', err);
-			switchToNextVideo();
-		});
-
-		document.addEventListener('visibilitychange', () => {
-			if (document.hidden) {
-				clearInterval(timer);
-			} else {
-				startSwitchTimer();
-			}
-		});
 	</script>`;
 }
 
 function generateCssRules(opacity: number): string {
-	return `
-.monaco-workbench {
-	background: transparent !important;
-}
-.monaco-workbench .part {
-	background: transparent !important;
-}
-.monaco-workbench .editor-container {
-	background: transparent !important;
-}
-.monaco-workbench .editor-instance {
-	background: transparent !important;
-}
-body {
-	background: rgba(30, 30, 30, ${1 - opacity}) !important;
-}
-`;
+	const theme = getTheme();
+	return generateCssForTheme(theme, opacity);
 }
 
 async function restoreOriginalWorkbench(): Promise<void> {
@@ -1288,6 +1616,12 @@ async function restoreOriginalWorkbench(): Promise<void> {
 			console.log('Removing background injection...');
 			const regex = new RegExp(`${bgMarkerStart}[\\s\\S]*?${bgMarkerEnd}\\n?`, 'g');
 			workbenchHtml = workbenchHtml.replace(regex, '');
+			
+			// Remove orphaned brackets
+			workbenchHtml = workbenchHtml.replace(/^\s*\[\]\s*$/gm, '');
+			workbenchHtml = workbenchHtml.replace(/^\s*\[\s*$/gm, '');
+			workbenchHtml = workbenchHtml.replace(/^\s*\]\s*$/gm, '');
+			
 			fs.writeFileSync(workbenchHtmlPath, workbenchHtml, 'utf-8');
 			console.log('Removed background injection from HTML');
 		}
