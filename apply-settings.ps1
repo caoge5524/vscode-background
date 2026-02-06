@@ -35,55 +35,70 @@ $videoScript = @"
 		style="position: fixed; inset: 0; width: 100vw; height: 100vh; object-fit: cover; object-position: center; z-index: -100; opacity: 0.8;">
 	</video>
 	<script>
-		const bgVideo = document.getElementById('bgVideo') || (() => {
-			const v = document.createElement('video');
-			v.id = 'bgVideo';
-			v.muted = true;
-			v.playsinline = true;
-			v.style.cssText = 'position: fixed; inset: 0; width: 100vw; height: 100vh; object-fit: cover; object-position: center; z-index: -100; opacity: 0.8;';
-			document.body.appendChild(v);
-			return v;
+		(function(){
+			const bgVideo = document.getElementById('bgVideo') || (() => {
+				const v = document.createElement('video');
+				v.id = 'bgVideo';
+				v.muted = true;
+				v.playsinline = true;
+				v.style.cssText = 'position: fixed; inset: 0; width: 100vw; height: 100vh; object-fit: cover; object-position: center; z-index: -100; opacity: 0.8;';
+				document.body.appendChild(v);
+				return v;
+			})();
+			let available = [];
+			let currentPos = 0;
+			const switchInterval = 10000;
+
+			async function findVideos() {
+				available = [];
+				for (let i = 1; i <= 100; i++) {
+					try {
+						const response = await fetch('./background-videos/bg' + i + '.mp4', { method: 'HEAD' });
+						if (response.ok) {
+							available.push(i);
+						}
+					} catch (e) {
+						// ignore
+					}
+				}
+			}
+
+			function playByPos(pos) {
+				if (!available || available.length === 0) return;
+				const idx = available[pos % available.length];
+				const src = './background-videos/bg' + idx + '.mp4';
+				bgVideo.setAttribute('loop', 'loop');
+				bgVideo.setAttribute('autoplay', 'autoplay');
+				bgVideo.src = src;
+				bgVideo.load();
+				bgVideo.play().catch(e => console.warn('Play failed:', e));
+			}
+
+			async function switchVideo() {
+				if (!available || available.length <= 1) return;
+				currentPos = (currentPos + 1) % available.length;
+				playByPos(currentPos);
+			}
+
+			async function init() {
+				await findVideos();
+				if (available.length >= 1) {
+					currentPos = 0;
+					playByPos(currentPos);
+					if (switchInterval > 0 && available.length > 1) {
+						setInterval(switchVideo, switchInterval);
+					}
+				} else {
+					console.warn('No background videos available - skipping video init');
+				}
+			}
+
+			if (document.readyState === 'loading') {
+				document.addEventListener('DOMContentLoaded', init);
+			} else {
+				init();
+			}
 		})();
-		let currentIndex = 1;
-		let maxIndex = 1;
-		const switchInterval = 10000;
-		async function findVideos() {
-			for (let i = 2; i <= 100; i++) {
-				try {
-					const response = await fetch('./background-videos/bg' + i + '.mp4', { method: 'HEAD' });
-					if (!response.ok) break;
-					maxIndex = i;
-				} catch (_) {
-					break;
-				}
-			}
-		}
-		function playVideo(index) {
-			bgVideo.setAttribute('loop', 'loop');
-			bgVideo.setAttribute('autoplay', 'autoplay');
-			bgVideo.src = './background-videos/bg' + index + '.mp4';
-			bgVideo.load();
-			bgVideo.play().catch(e => console.warn('Play failed:', e));
-		}
-		async function switchVideo() {
-			if (maxIndex <= 1) return;
-			currentIndex = currentIndex % maxIndex + 1;
-			playVideo(currentIndex);
-		}
-		async function init() {
-			await findVideos();
-			if (maxIndex >= 1) {
-				playVideo(1);
-				if (switchInterval > 0) {
-					setInterval(switchVideo, switchInterval);
-				}
-			}
-		}
-		if (document.readyState === 'loading') {
-			document.addEventListener('DOMContentLoaded', init);
-		} else {
-			init();
-		}
 	</script>
 "@
 

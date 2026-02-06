@@ -226,3 +226,75 @@ vsce package
 ```
 
 **Enjoy your video backgrounds!**
+
+## Future Roadmap
+
+### Planned Features
+
+We're actively developing the following features to enhance your VSCode experience:
+
+#### 🎬 Video Transition Effects
+- **Fade In/Out**: Smooth fade transitions between videos
+- **Slide Transitions**: Left, right, up, down sliding effects
+- **Zoom Effects**: Scale in/out animations
+- **Custom Duration**: Configurable transition animation duration
+
+#### 🎨 More Theme Styles
+- **Gradient Theme**: Colorful gradient overlay effects
+- **Blur Theme**: Adjustable background blur intensity
+- **Vignette Effect**: Darkened corners to focus on center
+- **Color Adjustments**: Saturation, brightness, contrast controls
+- **Custom CSS Themes**: Allow users to write custom theme styles
+
+#### 🖼️ Image Background Support
+- **Static Images**: Support JPG, PNG, GIF formats
+- **Image Carousel**: Multiple images rotating on schedule
+- **Mixed Playlist**: Combine images and videos in one playlist
+- **Image Filters**: B&W, vintage, vibrant, and more filters
+
+#### ⚙️ Advanced Configuration
+- **Playback Controls**:
+  - Random/Shuffle play mode
+  - Single/List loop modes
+  - Playback speed adjustment (0.5x - 2x)
+  - Video volume control (muted by default)
+- **Time-based Settings**:
+  - Auto-switch backgrounds by time of day
+  - Different backgrounds for work/break times
+  - Holiday special backgrounds
+
+#### 📦 Content Management
+- **Background Library**:
+  - Built-in curated background collection
+  - Download community-shared backgrounds
+  - Favorite and rating system
+- **Smart Categories**:
+  - By type (nature, tech, abstract, etc.)
+  - By mood (calm, energetic, focused, etc.)
+  - Custom tagging system
+
+#### 🔧 Performance Optimization
+- **Resource Preloading**: Preload next video for seamless transitions
+- **Memory Optimization**: Smart resource management
+- **GPU Acceleration**: Hardware-accelerated rendering
+- **Low-spec Mode**: Auto quality reduction on low-end devices
+
+#### 🌐 Cross-platform Sync
+- **Cloud Sync**: Sync settings across devices
+- **Import/Export**: One-click backup and restore
+- **Team Sharing**: Share configurations with team members
+
+#### 🎯 Enhanced Interactions
+- **Gesture Controls**: Quick switch backgrounds with hotkeys
+- **Context Menu**: Access features from editor right-click menu
+- **Status Bar**: Display current background info
+- **Preview Feature**: Preview background before applying
+
+### Feedback & Suggestions
+
+We value user feedback! If you have suggestions or ideas, please contact us:
+- Submit an Issue on GitHub
+- Leave a review on the marketplace
+- Send feedback via email
+
+Your support drives our continuous improvement! 🚀

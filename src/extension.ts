@@ -103,18 +103,21 @@ const THEMES: Record<ThemeName, Theme> = {
 	matte: {
 		name: 'matte',
 		label: 'Matte (磨砂)',
-		description: 'Semi-transparent frosted glass effect',
+		description: 'Semi-transparent frosted glass effect with blur',
 		css: (opacity: number) => `
 .monaco-workbench {
 	opacity: ${opacity} !important;
-	background: rgba(30, 30, 30, ${Math.max(0.3, (1 - opacity) * 0.5)}) !important;
-	backdrop-filter: blur(2px);
+	background: rgba(30, 30, 30, ${Math.max(0.4, (1 - opacity) * 0.6)}) !important;
+	backdrop-filter: blur(12px) saturate(180%);
+	-webkit-backdrop-filter: blur(12px) saturate(180%);
 }
 .monaco-workbench .part {
-	background: transparent !important;
+	background: rgba(40, 40, 40, 0.3) !important;
+	backdrop-filter: blur(8px);
 }
 .monaco-workbench .editor-container {
-	background: transparent !important;
+	background: rgba(25, 25, 25, 0.4) !important;
+	backdrop-filter: blur(6px);
 }
 body {
 	background: transparent !important;
@@ -376,8 +379,8 @@ async function generateApplyScript(): Promise<string | null> {
 		''
 	);
 
-	// 只在启用且有视频时添加新的 CSS 注入
-	if (enabled && videoFiles.length > 0) {
+	// 启用时总是添加 CSS，即使没有视频文件（为了后续视频做准备）
+	if (enabled) {
 		// 使用 Here-String 处理 CSS
 		const cssRulesLines = cssRules.split('\n');
 		scriptLines.push(
@@ -393,7 +396,7 @@ async function generateApplyScript(): Promise<string | null> {
 		);
 	} else {
 		scriptLines.push(
-			'Write-Host "CSS injection removed (disabled or no videos)" -ForegroundColor Green',
+			'Write-Host "CSS injection removed (disabled)" -ForegroundColor Green',
 			''
 		);
 	}
@@ -665,11 +668,32 @@ export function activate(context: vscode.ExtensionContext) {
 			);
 		}
 
+		// 获取 background-videos 文件夹路径
+		const videosFolder = workbenchHtmlPath ? path.join(path.dirname(workbenchHtmlPath), 'background-videos') : 'N/A';
+		const videosFolderExists = videosFolder !== 'N/A' && fs.existsSync(videosFolder);
+
 		let diagnosticInfo = `VSCode Background - Diagnostics\n`;
 		diagnosticInfo += `${'='.repeat(50)}\n\n`;
 		diagnosticInfo += `VSCode Version: ${vscode.version}\n`;
 		diagnosticInfo += `App Root: ${appRoot}\n`;
 		diagnosticInfo += `Running as Admin: ${process.platform === 'win32' ? 'Check manually' : 'N/A'}\n\n`;
+
+		// 显示 background-videos 文件夹路径
+		diagnosticInfo += `Background Videos Folder:\n`;
+		diagnosticInfo += `  ${videosFolderExists ? '✓' : '✗'} ${videosFolder}\n`;
+		if (videosFolderExists) {
+			try {
+				const files = fs.readdirSync(videosFolder);
+				const videoFiles = files.filter(f => /\.(mp4|webm|ogg)$/i.test(f));
+				diagnosticInfo += `  Video files found: ${videoFiles.length}\n`;
+				videoFiles.forEach((file, i) => {
+					diagnosticInfo += `    ${i + 1}. ${file}\n`;
+				});
+			} catch (e: any) {
+				diagnosticInfo += `  Error reading folder: ${e.message}\n`;
+			}
+		}
+		diagnosticInfo += `\n`;
 
 		diagnosticInfo += `Base Directories Searched:\n`;
 		for (const dir of baseDirs) {
@@ -757,7 +781,36 @@ export function activate(context: vscode.ExtensionContext) {
 		outputChannel.appendLine(diagnosticInfo);
 		outputChannel.show();
 
-		vscode.window.showInformationMessage('Diagnostics information shown in output panel');
+		// 弹窗提示 background-videos 文件夹路径
+		if (videosFolderExists) {
+			const action = await vscode.window.showInformationMessage(
+				`Background Videos Folder:\n${videosFolder}`,
+				'Copy Path',
+				'Open Folder',
+				'OK'
+			);
+			if (action === 'Copy Path') {
+				vscode.env.clipboard.writeText(videosFolder);
+				vscode.window.showInformationMessage('Path copied to clipboard!');
+			} else if (action === 'Open Folder') {
+				if (process.platform === 'win32') {
+					exec(`explorer "${videosFolder}"`);
+				} else if (process.platform === 'darwin') {
+					exec(`open "${videosFolder}"`);
+				} else {
+					exec(`xdg-open "${videosFolder}"`);
+				}
+			}
+		} else {
+			vscode.window.showWarningMessage(
+				`Background videos folder not found. Please enable background first.`,
+				'View Details'
+			).then(action => {
+				if (action === 'View Details') {
+					outputChannel.show();
+				}
+			});
+		}
 	});
 
 	// 添加视频命令 - Windows 上使用原生文件对话框
@@ -903,11 +956,34 @@ export function activate(context: vscode.ExtensionContext) {
 	// 管理视频命令（显示当前列表并提供操作选项）
 	const manageVideos = vscode.commands.registerCommand('vscode-background.manageVideos', async () => {
 		const config = vscode.workspace.getConfiguration('vscodeBackground');
-		const currentFiles = getVideoFiles();
 
-		if (currentFiles.length === 0) {
+		// 读取 background-videos 文件夹内的实际文件
+		let actualVideoFiles: string[] = [];
+		if (workbenchHtmlPath) {
+			const videosFolder = path.join(path.dirname(workbenchHtmlPath), 'background-videos');
+			if (fs.existsSync(videosFolder)) {
+				try {
+					const files = fs.readdirSync(videosFolder);
+					// 只获取视频文件，并按 bg1, bg2... 排序
+					const videoFiles = files.filter(f => /\.(mp4|webm|ogg)$/i.test(f));
+					videoFiles.sort((a, b) => {
+						const aMatch = a.match(/bg(\d+)/);
+						const bMatch = b.match(/bg(\d+)/);
+						if (aMatch && bMatch) {
+							return parseInt(aMatch[1]) - parseInt(bMatch[1]);
+						}
+						return a.localeCompare(b);
+					});
+					actualVideoFiles = videoFiles.map(f => path.join(videosFolder, f));
+				} catch (e) {
+					console.error('Failed to read videos folder:', e);
+				}
+			}
+		}
+
+		if (actualVideoFiles.length === 0) {
 			const action = await vscode.window.showInformationMessage(
-				'No videos configured. Would you like to add some?',
+				'No videos found in background-videos folder. Would you like to add some?',
 				'Add Videos',
 				'Cancel'
 			);
@@ -918,13 +994,13 @@ export function activate(context: vscode.ExtensionContext) {
 		}
 
 		// 显示当前视频列表
-		let message = 'Current video playlist (play order):\n\n';
-		currentFiles.forEach((filePath, index) => {
+		let message = 'Current video playlist (from background-videos folder):\n\n';
+		actualVideoFiles.forEach((filePath, index) => {
 			message += `${index + 1}. ${path.basename(filePath)}\n`;
 		});
 
 		const action = await vscode.window.showInformationMessage(
-			`${currentFiles.length} video(s) in playlist`,
+			`${actualVideoFiles.length} video(s) in background-videos folder`,
 			'Add Videos',
 			'Remove Videos',
 			'View List'
@@ -939,11 +1015,19 @@ export function activate(context: vscode.ExtensionContext) {
 			const outputChannel = vscode.window.createOutputChannel('VSCode Background - Video List');
 			outputChannel.clear();
 			outputChannel.appendLine('=== Video Background Playlist ===\n');
-			outputChannel.appendLine('Videos are played in order from top to bottom:\n');
-			currentFiles.forEach((filePath, index) => {
-				outputChannel.appendLine(`${index + 1}. ${path.basename(filePath)}`);
+			outputChannel.appendLine('Videos in background-videos folder (play order):\n');
+			if (workbenchHtmlPath) {
+				const videosFolder = path.join(path.dirname(workbenchHtmlPath), 'background-videos');
+				outputChannel.appendLine(`Folder: ${videosFolder}\n`);
+			}
+			actualVideoFiles.forEach((filePath, index) => {
+				const stats = fs.statSync(filePath);
+				const sizeMB = (stats.size / (1024 * 1024)).toFixed(2);
+				outputChannel.appendLine(`${index + 1}. ${path.basename(filePath)} (${sizeMB} MB)`);
 				outputChannel.appendLine(`   Path: ${filePath}\n`);
 			});
+			outputChannel.appendLine(`\nNote: Files are named as bg1.mp4, bg2.mp4, etc.`);
+			outputChannel.appendLine(`You can manually add videos to this folder following the naming convention.`);
 			outputChannel.show();
 		}
 	});
@@ -1140,15 +1224,8 @@ export function activate(context: vscode.ExtensionContext) {
 		const enabled = config.get<boolean>('enabled', true);
 
 		if (enabled && videoFiles.length === 0) {
-			const action = await vscode.window.showWarningMessage(
-				'No video files configured. Add videos first?',
-				'Add Videos',
-				'Cancel'
-			);
-			if (action === 'Add Videos') {
-				vscode.commands.executeCommand('vscode-background.addVideos');
-			}
-			return;
+			// 即使没有视频也继续，CSS 会被注入为后续视频做准备
+			vscode.window.showInformationMessage('No video files currently. CSS theme will be applied. Add videos to see them play.');
 		}
 
 		vscode.window.showInformationMessage('Applying settings... Please accept the Administrator prompt.');
@@ -1193,6 +1270,8 @@ export function activate(context: vscode.ExtensionContext) {
 		if (action !== 'Yes, Cleanup') return;
 
 		try {
+			vscode.window.showInformationMessage('Cleanup in progress... Please wait.');
+
 			await restoreOriginalWorkbench();
 
 			// 清理配置
@@ -1201,15 +1280,69 @@ export function activate(context: vscode.ExtensionContext) {
 			await setVideoFiles([]);
 
 			vscode.window.showInformationMessage(
-				'Cleanup complete! You can now safely uninstall the extension. Please restart VSCode.',
+				'✅ Cleanup complete! You can now safely uninstall the extension. Please restart VSCode.',
 				'Restart Now'
 			).then(action => {
 				if (action === 'Restart Now') {
 					vscode.commands.executeCommand('workbench.action.reloadWindow');
 				}
 			});
-		} catch (error) {
-			vscode.window.showErrorMessage(`Cleanup failed: ${error}. Try running VSCode as Administrator.`);
+		} catch (error: any) {
+			const errorCode = error?.code || error?.message?.includes('EBUSY') ? 'EBUSY' : 'UNKNOWN';
+			const errorMessage = error?.message || String(error);
+
+			if (errorCode === 'EBUSY' || errorMessage.includes('EBUSY') || errorMessage.includes('busy')) {
+				const action = await vscode.window.showErrorMessage(
+					'❌ Cleanup failed: Resource busy (files are still in use).\n\n' +
+					'Solutions:\n' +
+					'1. Close all VSCode windows completely\n' +
+					'2. Kill all VSCode processes in Task Manager\n' +
+					'3. Wait a few seconds and try again\n' +
+					'4. Run VSCode as Administrator\n\n' +
+					'After killing processes, the cleanup may succeed automatically on next run.',
+					'Close VSCode',
+					'Manual Cleanup',
+					'Retry',
+					'Cancel'
+				);
+
+				if (action === 'Close VSCode') {
+					vscode.commands.executeCommand('workbench.action.quit');
+				} else if (action === 'Manual Cleanup') {
+					const videosDir = workbenchHtmlPath ? path.join(path.dirname(workbenchHtmlPath), 'background-videos') : 'N/A';
+					vscode.window.showInformationMessage(
+						`Manual cleanup needed. Delete this folder manually:\n${videosDir}\n\n` +
+						`Then run cleanup command again.`,
+						'Copy Path'
+					).then(btnAction => {
+						if (btnAction === 'Copy Path') {
+							vscode.env.clipboard.writeText(videosDir);
+							vscode.window.showInformationMessage('Path copied to clipboard!');
+						}
+					});
+				} else if (action === 'Retry') {
+					// Retry immediately
+					vscode.commands.executeCommand('vscode-background.cleanup');
+				}
+			} else {
+				const action = await vscode.window.showErrorMessage(
+					`❌ Cleanup failed: ${errorMessage}\n\n` +
+					'Try running VSCode as Administrator.',
+					'Show Details',
+					'Cancel'
+				);
+
+				if (action === 'Show Details') {
+					const outputChannel = vscode.window.createOutputChannel('VSCode Background Cleanup Error');
+					outputChannel.clear();
+					outputChannel.appendLine('Cleanup Error Details:');
+					outputChannel.appendLine(`Error Code: ${errorCode}`);
+					outputChannel.appendLine(`Error Message: ${errorMessage}`);
+					outputChannel.appendLine(`\nWorkbench HTML Path: ${workbenchHtmlPath}`);
+					outputChannel.appendLine(`Workbench CSS Path: ${workbenchCssPath}`);
+					outputChannel.show();
+				}
+			}
 		}
 	});
 
@@ -1489,26 +1622,26 @@ async function applyVideoBackground(videoFiles: string[]): Promise<void> {
 		let workbenchCss = fs.readFileSync(workbenchCssPath, 'utf-8');
 		console.log('Current CSS length:', workbenchCss.length);
 
-		// Remove any existing opacity rules (both old and new format)
+		// Remove all existing CSS injections (old and new formats)
+		workbenchCss = workbenchCss.replace(/\/\* VSCODE-BACKGROUND-CSS-START \*\/[\s\S]*?\/\* VSCODE-BACKGROUND-CSS-END \*\/\n?/g, '');
 		workbenchCss = workbenchCss.replace(/\/\* VSCode Background Extension - START \*\/[\s\S]*?\/\* VSCode Background Extension - END \*\/\n?/g, '');
 		workbenchCss = workbenchCss.replace(/\/\* VSCode Background Extension \*\/[\s\S]*?\.monaco-workbench[^}]*\}[^/]*\.monaco-workbench > \.part[^}]*\}\n?/g, '');
 		// Also remove simple opacity rule if exists
 		workbenchCss = workbenchCss.replace(/\.monaco-workbench\s*\{[^}]*opacity[^}]*\}\n?/g, '');
 
-		// Add simple opacity rule for video background visibility
-		const opacityRule = `
-		/* VSCode Background Extension - START */
-		.monaco-workbench {
-			opacity: ${opacity} !important;
-		}
-		/* VSCode Background Extension - END */
-		`;
-		workbenchCss += opacityRule;
+		// Always add CSS rules when any videos are configured or when explicitly enabled
+		const cssRules = generateCssRules(opacity);
+		const cssInjection = `
+/* VSCODE-BACKGROUND-CSS-START */
+${cssRules}
+/* VSCODE-BACKGROUND-CSS-END */
+`;
+		workbenchCss += cssInjection;
 
 		try {
 			fs.writeFileSync(workbenchCssPath, workbenchCss, 'utf-8');
-			console.log(`Applied CSS transparency rules to ${workbenchCssPath}`);
-			console.log('CSS rule added:', opacityRule.trim());
+			console.log(`Applied CSS rules to ${workbenchCssPath}`);
+			console.log('CSS injection content:', cssInjection.substring(0, 200));
 		} catch (error: any) {
 			console.error('Failed to write CSS:', error);
 			if (error.code === 'EPERM' || error.code === 'EACCES' || error.code === 'EBUSY') {
@@ -1547,55 +1680,70 @@ function generateVideoScript(switchInterval: number, opacity: number): string {
 		style="position: fixed; inset: 0; width: 100vw; height: 100vh; object-fit: cover; object-position: center; z-index: -100; opacity: ${opacity};">
 	</video>
 	<script>
-		const bgVideo = document.getElementById('bgVideo') || (() => {
-			const v = document.createElement('video');
-			v.id = 'bgVideo';
-			v.muted = true;
-			v.playsinline = true;
-			v.style.cssText = 'position: fixed; inset: 0; width: 100vw; height: 100vh; object-fit: cover; object-position: center; z-index: -100; opacity: ${opacity};';
-			document.body.appendChild(v);
-			return v;
+		(function(){
+			const bgVideo = document.getElementById('bgVideo') || (() => {
+				const v = document.createElement('video');
+				v.id = 'bgVideo';
+				v.muted = true;
+				v.playsinline = true;
+				v.style.cssText = 'position: fixed; inset: 0; width: 100vw; height: 100vh; object-fit: cover; object-position: center; z-index: -100; opacity: ${opacity};';
+				document.body.appendChild(v);
+				return v;
+			})();
+			let available = [];
+			let currentPos = 0;
+			const switchInterval = ${effectiveInterval};
+
+			async function findVideos() {
+				available = [];
+				for (let i = 1; i <= 100; i++) {
+					try {
+						const response = await fetch('./background-videos/bg' + i + '.mp4', { method: 'HEAD' });
+						if (response.ok) {
+							available.push(i);
+						}
+					} catch (e) {
+						// ignore
+					}
+				}
+			}
+
+			function playByPos(pos) {
+				if (!available || available.length === 0) return;
+				const idx = available[pos % available.length];
+				const src = './background-videos/bg' + idx + '.mp4';
+				bgVideo.setAttribute('loop', 'loop');
+				bgVideo.setAttribute('autoplay', 'autoplay');
+				bgVideo.src = src;
+				bgVideo.load();
+				bgVideo.play().catch(e => console.warn('Play failed:', e));
+			}
+
+			async function switchVideo() {
+				if (!available || available.length <= 1) return;
+				currentPos = (currentPos + 1) % available.length;
+				playByPos(currentPos);
+			}
+
+			async function init() {
+				await findVideos();
+				if (available.length >= 1) {
+					currentPos = 0;
+					playByPos(currentPos);
+					if (switchInterval > 0 && available.length > 1) {
+						setInterval(switchVideo, switchInterval);
+					}
+				} else {
+					console.warn('No background videos available - skipping video init');
+				}
+			}
+
+			if (document.readyState === 'loading') {
+				document.addEventListener('DOMContentLoaded', init);
+			} else {
+				init();
+			}
 		})();
-		let currentIndex = 1;
-		let maxIndex = 1;
-		const switchInterval = ${effectiveInterval};
-		async function findVideos() {
-			for (let i = 2; i <= 100; i++) {
-				try {
-					const response = await fetch('./background-videos/bg' + i + '.mp4', { method: 'HEAD' });
-					if (!response.ok) break;
-					maxIndex = i;
-				} catch (_) {
-					break;
-				}
-			}
-		}
-		function playVideo(index) {
-			bgVideo.setAttribute('loop', 'loop');
-			bgVideo.setAttribute('autoplay', 'autoplay');
-			bgVideo.src = './background-videos/bg' + index + '.mp4';
-			bgVideo.load();
-			bgVideo.play().catch(e => console.warn('Play failed:', e));
-		}
-		async function switchVideo() {
-			if (maxIndex <= 1) return;
-			currentIndex = currentIndex % maxIndex + 1;
-			playVideo(currentIndex);
-		}
-		async function init() {
-			await findVideos();
-			if (maxIndex >= 1) {
-				playVideo(1);
-				if (switchInterval > 0) {
-					setInterval(switchVideo, switchInterval);
-				}
-			}
-		}
-		if (document.readyState === 'loading') {
-			document.addEventListener('DOMContentLoaded', init);
-		} else {
-			init();
-		}
 	</script>`;
 }
 
@@ -1616,12 +1764,12 @@ async function restoreOriginalWorkbench(): Promise<void> {
 			console.log('Removing background injection...');
 			const regex = new RegExp(`${bgMarkerStart}[\\s\\S]*?${bgMarkerEnd}\\n?`, 'g');
 			workbenchHtml = workbenchHtml.replace(regex, '');
-			
+
 			// Remove orphaned brackets
 			workbenchHtml = workbenchHtml.replace(/^\s*\[\]\s*$/gm, '');
 			workbenchHtml = workbenchHtml.replace(/^\s*\[\s*$/gm, '');
 			workbenchHtml = workbenchHtml.replace(/^\s*\]\s*$/gm, '');
-			
+
 			fs.writeFileSync(workbenchHtmlPath, workbenchHtml, 'utf-8');
 			console.log('Removed background injection from HTML');
 		}
@@ -1631,7 +1779,8 @@ async function restoreOriginalWorkbench(): Promise<void> {
 	if (workbenchCssPath && fs.existsSync(workbenchCssPath)) {
 		let workbenchCss = fs.readFileSync(workbenchCssPath, 'utf-8');
 
-		// Remove our CSS rules using markers
+		// Remove all CSS injections with different markers
+		workbenchCss = workbenchCss.replace(/\/\* VSCODE-BACKGROUND-CSS-START \*\/[\s\S]*?\/\* VSCODE-BACKGROUND-CSS-END \*\/\n?/g, '');
 		workbenchCss = workbenchCss.replace(/\/\* VSCode Background Extension - START \*\/[\s\S]*?\/\* VSCode Background Extension - END \*\/\n?/g, '');
 		// Also remove old format if exists
 		workbenchCss = workbenchCss.replace(/\/\* VSCode Background Extension \*\/[\s\S]*?\.monaco-workbench[^}]*\}[^/]*\.monaco-workbench > \.part[^}]*\}\n?/g, '');
@@ -1642,12 +1791,45 @@ async function restoreOriginalWorkbench(): Promise<void> {
 		console.log('Removed CSS rules from workbench CSS');
 	}
 
-	// Clean up video files
+	// Try simple removal of video directory; if fails, surface error to caller
 	if (workbenchHtmlPath) {
 		const videoDirPath = path.join(path.dirname(workbenchHtmlPath), 'background-videos');
 		if (fs.existsSync(videoDirPath)) {
-			fs.rmSync(videoDirPath, { recursive: true, force: true });
-			console.log('Cleaned up video directory');
+			try {
+				fs.rmSync(videoDirPath, { recursive: true, force: true });
+				console.log('Removed video directory');
+			} catch (e: any) {
+				console.warn('Failed to remove video directory directly:', e.message);
+				// Try a shell-based removal as a last attempt
+				try {
+					if (process.platform === 'win32') {
+						await new Promise<void>((resolve) => {
+							exec(`powershell -Command "Remove-Item -LiteralPath '${videoDirPath}' -Recurse -Force"`, (err, stdout, stderr) => {
+								if (err) console.warn('PowerShell remove failed:', stderr || err.message);
+								resolve();
+							});
+						});
+					} else {
+						await new Promise<void>((resolve) => {
+							exec(`rm -rf "${videoDirPath}"`, (err, stdout, stderr) => {
+								if (err) console.warn('rm -rf failed:', stderr || err.message);
+								resolve();
+							});
+						});
+					}
+					if (!fs.existsSync(videoDirPath)) {
+						console.log('Removed video directory via shell fallback');
+						return;
+					}
+				} catch (shellErr: any) {
+					console.warn('Shell fallback also failed:', shellErr.message);
+				}
+
+				// Still exists - surface EBUSY to caller
+				const err: any = new Error(`EBUSY: resource busy or locked - ${videoDirPath}`);
+				err.code = 'EBUSY';
+				throw err;
+			}
 		}
 	}
 
