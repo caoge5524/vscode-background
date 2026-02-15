@@ -36,7 +36,7 @@ function generateChecksumsPatch(): string {
     // 检测"损坏"通知的多语言关键字
     const corruptKeywords = [
         'corrupt',           // English
-        '损坏', '安装',      // Chinese
+        '损坏', '安装', '似乎',      // Chinese
         'インストール',      // Japanese
         'beschädigt',        // German
         'corrompue',         // French
@@ -54,33 +54,46 @@ function generateChecksumsPatch(): string {
 
     return `(function(){
 var hideCorruptNotifications=function(){
-var toasts=document.querySelectorAll('.notification-toast,.notification-container');
-for(var i=0;i<toasts.length;i++){
-var label=(toasts[i].getAttribute('aria-label')||'').toLowerCase();
-var found=false;
 var keywords=${JSON.stringify(corruptKeywords)};
+var selectors=['.notification-toast','.notification-container','.notificationToast','[role="alert"]','[aria-live="polite"]','.message'];
+var allElements=[];
+for(var s=0;s<selectors.length;s++){
+var els=document.querySelectorAll(selectors[s]);
+for(var i=0;i<els.length;i++){
+allElements.push(els[i]);
+}
+}
+for(var i=0;i<allElements.length;i++){
+var el=allElements[i];
+var text=(el.textContent||el.innerText||el.getAttribute('aria-label')||'').toLowerCase();
+var ariaLabel=(el.getAttribute('aria-label')||'').toLowerCase();
+var title=(el.getAttribute('title')||'').toLowerCase();
+var dataLabel=(el.getAttribute('data-label')||'').toLowerCase();
+var fullText=text+' '+ariaLabel+' '+title+' '+dataLabel;
+var found=false;
 for(var j=0;j<keywords.length;j++){
-if(label.indexOf(keywords[j].toLowerCase())>-1){
+if(fullText.indexOf(keywords[j].toLowerCase())>-1){
 found=true;
 break;
 }
 }
 if(found){
-toasts[i].style.display='none';
+el.style.display='none!important';
+el.remove();
 }
 }
 };
-hideCorruptNotifications();
-if(document.body){
-var observer=new MutationObserver(hideCorruptNotifications);
-observer.observe(document.body,{childList:true,subtree:true});
-}else{
+if(document.readyState==='loading'){
 document.addEventListener('DOMContentLoaded',function(){
-hideCorruptNotifications();
-var observer=new MutationObserver(hideCorruptNotifications);
-observer.observe(document.body,{childList:true,subtree:true});
+setTimeout(hideCorruptNotifications,100);
 });
+}else{
+setTimeout(hideCorruptNotifications,100);
 }
+var observer=new MutationObserver(function(){
+setTimeout(hideCorruptNotifications,50);
+});
+observer.observe(document.documentElement,{childList:true,subtree:true});
 })();`;
 }
 

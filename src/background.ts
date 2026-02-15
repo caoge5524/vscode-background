@@ -68,10 +68,12 @@ export class Background {
         if (config.videos.length === 0) {
             const action = await vscode.window.showWarningMessage(
                 '未配置视频文件。请先在 settings.json 的 "vscodeBackground.videos" 中添加视频路径，或使用"添加视频"命令。',
-                '添加视频', '打开设置', '取消'
+                '添加视频', '编辑 settings.json', '打开设置', '取消'
             );
             if (action === '添加视频') {
                 await this.addVideos();
+            } else if (action === '编辑 settings.json') {
+                await vscode.commands.executeCommand('workbench.action.openSettingsJson');
             } else if (action === '打开设置') {
                 vscode.commands.executeCommand('workbench.action.openSettings', 'vscodeBackground.videos');
             }
@@ -85,8 +87,11 @@ export class Background {
         if (missingFiles.length > 0) {
             const action = await vscode.window.showWarningMessage(
                 `以下 ${missingFiles.length} 个视频文件不存在:\n${missingFiles.map(f => path.basename(f)).join(', ')}\n\n是否仍然继续？`,
-                '继续', '取消'
+                '继续', '编辑 settings.json', '取消'
             );
+            if (action === '编辑 settings.json') {
+                await vscode.commands.executeCommand('workbench.action.openSettingsJson');
+            }
             if (action !== '继续') { return; }
         }
 
@@ -186,6 +191,20 @@ export class Background {
 
         if (!selectedFiles || selectedFiles.length === 0) { return; }
 
+        // 检测是否包含非英文字符
+        const nonEnglishFiles = selectedFiles.filter(f => !/^[a-zA-Z0-9:\\/\-._()\s]*$/.test(f));
+        if (nonEnglishFiles.length > 0) {
+            const action = await vscode.window.showWarningMessage(
+                `检测到 ${nonEnglishFiles.length} 个文件路径包含非英文字符，建议在插件设置中添加。\n\n如需继续，请在 settings.json 中手动添加这些路径。`,
+                '编辑 settings.json',
+                '取消'
+            );
+            if (action === '编辑 settings.json') {
+                await vscode.commands.executeCommand('workbench.action.openSettingsJson');
+            }
+            return;
+        }
+
         const config = vscode.workspace.getConfiguration('vscodeBackground');
         const currentVideos = config.get<string[]>('videos', []);
         const newVideos = [...currentVideos, ...selectedFiles];
@@ -197,10 +216,12 @@ export class Background {
         const names = selectedFiles.map(f => path.basename(f)).join(', ');
         const action = await vscode.window.showInformationMessage(
             `已添加 ${selectedFiles.length} 个视频: ${names}`,
-            '立即应用', '稍后'
+            '立即应用', '编辑 settings.json', '稍后'
         );
         if (action === '立即应用') {
             await this.install();
+        } else if (action === '编辑 settings.json') {
+            await vscode.commands.executeCommand('workbench.action.openSettingsJson');
         }
     }
 
@@ -285,10 +306,12 @@ export class Background {
             if (config.enabled && this.jsPath) {
                 const action = await vscode.window.showInformationMessage(
                     '配置已更改，是否重新应用背景设置？',
-                    '应用', '稍后'
+                    '应用', '编辑 settings.json', '稍后'
                 );
                 if (action === '应用') {
                     await this.install();
+                } else if (action === '编辑 settings.json') {
+                    await vscode.commands.executeCommand('workbench.action.openSettingsJson');
                 }
             }
         }, 1500);
@@ -298,9 +321,12 @@ export class Background {
 
     private getConfig() {
         const config = vscode.workspace.getConfiguration('vscodeBackground');
+        // 自动去掉视频路径中的引号
+        let videos = config.get<string[]>('videos', []);
+        videos = videos.map(v => v.replace(/^["']|["']$/g, ''));
         return {
             enabled: config.get<boolean>('enabled', false),
-            videos: config.get<string[]>('videos', []),
+            videos: videos,
             opacity: config.get<number>('opacity', 0.8),
             switchInterval: config.get<number>('switchInterval', 180),
             theme: config.get<'glass' | 'matte'>('theme', 'glass'),
