@@ -10,12 +10,57 @@
 			"type": "extensionHost",
 			"request": "launch",
 			"args": [
-				"--extensionDevelopmentPath=${workspaceFolder}"
+				"--extensionDevelopmentPath=${workspaceFolder}",
+				"--disable-extensions"
 			],
 			"outFiles": [
 				"${workspaceFolder}/out/**/*.js"
 			],
-			"preLaunchTask": "${defaultBuildTask}"
+			"preLaunchTask": "npm: compile",
+			"sourceMaps": true,
+			"smartStep": true,
+			"presentation": {
+				"group": "2-run",
+				"order": 1
+			}
+		},
+		{
+			"name": "Watch & Run Extension",
+			"type": "extensionHost",
+			"request": "launch",
+			"args": [
+				"--extensionDevelopmentPath=${workspaceFolder}",
+				"--disable-extensions"
+			],
+			"outFiles": [
+				"${workspaceFolder}/out/**/*.js"
+			],
+			"preLaunchTask": "npm: watch",
+			"sourceMaps": true,
+			"smartStep": true,
+			"presentation": {
+				"group": "2-run",
+				"order": 2
+			}
+		},
+		{
+			"name": "Extension Tests",
+			"type": "extensionHost",
+			"request": "launch",
+			"args": [
+				"--extensionDevelopmentPath=${workspaceFolder}",
+				"--extensionTestsPath=${workspaceFolder}/out/test/extension.test"
+			],
+			"outFiles": [
+				"${workspaceFolder}/out/**/*.js"
+			],
+			"preLaunchTask": "npm: compile",
+			"sourceMaps": true,
+			"smartStep": true,
+			"presentation": {
+				"group": "2-run",
+				"order": 3
+			}
 		}
 	]
 }

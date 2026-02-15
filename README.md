@@ -1,228 +1,295 @@
 # VSCode Background
 
-A Visual Studio Code extension that allows you to set video backgrounds (MP4 and other formats) for your VSCode workspace.
+A Visual Studio Code extension that sets video backgrounds (MP4, WebM, OGG) in your workspace **without deleting them on VSCode updates**.
 
 English | [简体中文](./README.zh-CN.md)
 
 ## Features
 
-- **Video Background Support**: Set MP4, WebM, or OGG videos as your VSCode background
-- **Multiple Videos**: Load multiple videos that automatically rotate at configurable intervals
-- **Infinite Loop Mode**: Set switch interval to 0 to loop a single video forever
-- **Auto-Discovery**: Automatically detects and plays videos in sequence
-- **Customizable Settings**: Configure opacity, switch interval, and video selection
-- **Easy Enable/Disable**: Simple commands to enable or disable video backgrounds
-- **Auto-Apply**: Automatically apply changes when settings are modified (requires Administrator permission once)
-- **Real-time Status**: Display current background status and configuration info
+- **Video Background Support**: MP4, WebM, or OGG videos as your VSCode background
+- **Multiple Videos**: Load multiple videos with automatic rotation at configurable intervals
+- **Settings.json Editable**: All configuration directly in `settings.json`, survives VSCode updates
+- **Persistent Videos**: Video file paths stored in settings, files remain in original locations (not copied)
+- **Auto-Recovery After Updates**: Detects missing patches after VSCode updates and prompts to reapply
+- **Auto-Cleanup on Uninstall**: `vscode:uninstall` hook automatically removes patch when extension is uninstalled
+- **Infinite Loop Mode**: Set `switchInterval` to 0 to loop a single video forever
+- **Multiple Themes**: Glass (transparent) and Matte (frosted glass with blur) themes
+- **Customizable Settings**: Opacity, switch interval, theme selection
+
+## What's New in v2.0.0
+
+**Major Architecture Rewrite**:
+- ✅ Videos **no longer deleted on VSCode updates** (main v1 complaint fixed)
+- ✅ **Single-file patching approach** (modifies only `workbench.desktop.main.js`)
+- ✅ **Video paths in settings.json** (no more copying to temporary folders)
+- ✅ **Simplified commands** (4 commands vs 16 in v1)
+- ✅ **Auto-recovery** (detects missing patches after updates)
+- ✅ **Auto-cleanup** (uninstall hook handles cleanup automatically)
+- ✅ **Modular code** (6 focused modules vs 1935-line monolith)
+
+See [CHANGELOG.md](./CHANGELOG.md) for complete upgrade details and migration guide.
 
 ## Installation
 
-### First Time Setup (Windows)
+### First Time Setup
 
-Due to Windows file permissions, you'll see an **Administrator permission prompt** when applying settings for the first time. This is normal.
+1. **Install** the extension from VSCode Marketplace
+2. **Open Settings** (`Ctrl+,`) → Search `VSCode Background`
+3. **Check the settings** (should be empty initially)
+4. **Add videos** by running command: `VSCode Background: Add Videos`
+5. **Apply** by running command: `VSCode Background: Install / Update`
+6. **Accept** the Administrator permission prompt (UAC)
+7. **Restart** VSCode
 
-1. Open Settings (`Ctrl+,`)
-2. Search for `VSCode Background`
-3. Configure video files, opacity, switch interval, etc.
-4. Click **Apply Settings** or wait for auto-prompt
-5. Accept the Administrator permission prompt
-6. Restart VSCode
+### Quick Start (Settings.json Method)
 
-### Quick Start
-
-**Via Settings UI (Recommended):**
-
-1. Open Settings → Search "VSCode Background"
-2. Find **Video Files** setting → Click "Add Videos" command
-3. Select video files
-4. Adjust **Opacity** (0-1) and **Switch Interval**
-5. Make sure **Enabled** is checked
-6. Auto-prompt "Apply now?" → Click **Apply**
-7. Accept Administrator prompt
-8. Restart VSCode
+1. **Open Settings UI** (`Ctrl+,`) → Search "VSCode Background"
+2. **Find the settings** (all 5 sections)
+3. **Edit directly** or use commands to set values
+4. **Run command** `Install / Update` to apply changes
+5. **Restart** VSCode
 
 ## Usage
 
-### Recommended: Via Settings UI
+### Recommended: Direct Settings.json Editing
 
-1. **Open Settings** (`Ctrl+,`) → Search "VSCode Background"
-2. **Configure Videos**:
-   - Click "Add Videos" command to add video files
-   - Or use Command Palette: `VSCode Background: Add Videos`
-3. **Adjust Parameters**:
-   - **Enabled**: Check to enable background
-   - **Opacity**: Adjust transparency (recommended 0.5-0.9)
-   - **Switch Interval**: Switch interval in milliseconds (0 = infinite loop)
-4. **Apply**: Auto-prompt "Apply now?" after changes
-5. **Status**: "Current Status" displays current state
+Open Settings (`Ctrl+,`) and search "VSCode Background":
+
+```json
+{
+  "vscodeBackground.enabled": true,
+  "vscodeBackground.videos": [
+    "C:\\Videos\\background1.mp4",
+    "C:\\Videos\\background2.mp4",
+    "https://example.com/video.mp4"
+  ],
+  "vscodeBackground.opacity": 0.8,
+  "vscodeBackground.switchInterval": 180,
+  "vscodeBackground.theme": "glass"
+}
+```
+
+Then run: **`VSCode Background: Install / Update`** command
 
 ### Via Commands
 
-Shortcut: `Ctrl+Shift+P` to open Command Palette
+Press `Ctrl+Shift+P` to open Command Palette:
 
-- `Add Videos` - Add video files
-- `Remove Video` - Remove video files
-- `Manage Videos` - View playlist
-- `Apply Settings` - Apply current settings
-- `Refresh Status` - Refresh status display
-- `Set Infinite Loop` - Quick toggle infinite loop
-- `Set Opacity` - Set background opacity (command only)
-- `Set Switch Interval` - Set rotation interval (command only)
-- `Show Videos Folder` - Show `background-videos` path and naming rules
-
-### Configure Settings
-
-Settings are **read-only** and only show current values.
-
-Use commands to change values:
-
-- `VSCode Background: Set Opacity`
-- `VSCode Background: Set Switch Interval`
-- `VSCode Background: Add Videos` / `Remove Video`
-- `VSCode Background: Enable Video Background` / `Disable Video Background`
+- **`Install / Update`** - Apply current settings from settings.json (core command)
+- **`Uninstall`** - Remove background from workbench (cleanup command)
+- **`Add Videos`** - Open file picker to add video paths to settings.json
+- **`Show Diagnostics`** - Display debug information
 
 ## Extension Settings
 
-| Setting                           | Type    | Default           | Description                                          |
-| --------------------------------- | ------- | ----------------- | ---------------------------------------------------- |
-| `vscodeBackground.enabled`        | boolean | true              | **Read-only** - Use enable/disable commands          |
-| `vscodeBackground.videoFiles`     | array   | []                | **Read-only** - Use add/remove/manage commands       |
-| `vscodeBackground.switchInterval` | number  | 180000            | **Read-only** - Use Set Switch Interval (min: 10000) |
-| `vscodeBackground.opacity`        | number  | 0.8               | **Read-only** - Use Set Opacity (0-1)                |
-| `vscodeBackground.currentStatus`  | string  | "Not initialized" | **Read-only** - Display current background status    |
+| Setting                           | Type    | Default | Description                                        |
+| --------------------------------- | ------- | ------- | -------------------------------------------------- |
+| `vscodeBackground.enabled`        | boolean | false   | Enable/disable background                          |
+| `vscodeBackground.videos`         | array   | []      | **Video file paths** (local or URL)                |
+| `vscodeBackground.opacity`        | number  | 0.8     | Background opacity (0-1)                           |
+| `vscodeBackground.switchInterval` | number  | 180     | Switch interval in **seconds** (0 = infinite loop) |
+| `vscodeBackground.theme`          | string  | "glass" | Theme: "glass" or "matte"                          |
 
-### Infinite Loop Mode
+### Video Path Formats
 
-Set `switchInterval` to `0` to enable infinite loop mode - the first video will loop forever without switching to other videos.
+All formats are supported and automatically converted:
 
-You can also run: `VSCode Background: Set Infinite Loop (No Switch)`
+```json
+"vscodeBackground.videos": [
+  "C:\\Users\\You\\Videos\\bg.mp4",          // Windows absolute path
+  "/home/user/videos/bg.mp4",                // Linux/Mac absolute path
+  "file:///C:/Videos/video.mp4",             // file:// URL
+  "https://example.com/background.mp4",      // HTTPS URL
+  "data:video/mp4;base64,..."                // Base64-encoded video
+]
+```
+
+**Important**: Video files are **NOT copied anywhere**. Paths point to original locations. Files persist across VSCode updates.
 
 ## Commands
 
-| Command                              | Description                                               |
-| ------------------------------------ | --------------------------------------------------------- |
-| `Enable Video Background`            | Enable video background with current settings (legacy)    |
-| `Disable Video Background`           | Remove video background (legacy)                          |
-| `Add Videos`                         | **Recommended** - Add video files to playlist             |
-| `Remove Video`                       | Remove videos from playlist                               |
-| `Manage Videos`                      | View and manage video playlist                            |
-| `Apply Settings`                     | **Core** - Apply current settings (auto-run script)       |
-| `Refresh Status`                     | Refresh status display                                    |
-| `Configure`                          | Quick open settings                                       |
-| `Fix 'Installation Corrupt' Warning` | Update checksums to remove VSCode warning                 |
-| `Set Infinite Loop`                  | Toggle infinite loop mode                                 |
-| `Set Opacity`                        | Set background opacity (command only)                     |
-| `Set Switch Interval`                | Set rotation interval (command only)                      |
-| `Show Videos Folder`                 | Show background-videos path and naming rules              |
-| `Cleanup (Run Before Uninstall)`     | **IMPORTANT** - Remove all injected code before uninstall |
-| `Show Diagnostics`                   | Display debug information                                 |
+| Command            | Purpose                                                              |
+| ------------------ | -------------------------------------------------------------------- |
+| `Install / Update` | **Core** - Apply background with current settings from settings.json |
+| `Uninstall`        | **Cleanup** - Completely remove background from VSCode               |
+| `Add Videos`       | **Helper** - Open file picker to add video paths to settings.json    |
+| `Show Diagnostics` | **Debug** - Display extension and system information                 |
+
+## Why v2.0.0 is Better
+
+### Problem in v1
+- Videos stored in `background-videos/` folder inside VSCode installation
+- Folder deleted on every VSCode update (maintenance, minor, major)
+- Users had to re-add videos repeatedly
+- Very frustrating user experience ❌
+
+### Solution in v2
+- Video **paths** stored in `settings.json` (survives updates)
+- Actual files stay in user's original location (untouched by VSCode)
+- Patch detects missing files and prompts user to reapply
+- No file copying, no folder management ✅
+
+```
+v1 Flow: Select Video → Copy to background-videos/ → VSCode Update → Deleted ❌
+v2 Flow: Select Video → Store Path in settings.json → VSCode Update → Path Still There ✅
+```
 
 ## Important Notes
 
 ### ⚠️ Before Uninstalling
 
-**You MUST run the cleanup command before uninstalling this extension!**
+**Just run the uninstall command** - the cleanup hook automatically handles it:
 
 1. Open Command Palette
-2. Run: `VSCode Background: Cleanup (Run Before Uninstall)`
+2. Run: `VSCode Background: Uninstall`
 3. Then uninstall the extension
 
-If you uninstall without cleanup, the injected code will remain in VSCode's files.
+The `vscode:uninstall` hook will automatically remove the patch from `workbench.desktop.main.js`.
 
-### "Installation Corrupt" Warning
+### If Using v1 Before
 
-After enabling the background, VSCode may show an "Installation appears to be corrupt" warning. This is normal and can be dismissed by:
+v2 automatically:
+- ✅ Reads your old v1 settings
+- ✅ Migrates video paths to new format
+- ✅ Cleans up old patch files
+- ✅ Prompts to apply new background
 
-- Running: `VSCode Background: Fix 'Installation Corrupt' Warning`
-- Or simply clicking "Don't Show Again"
+**No data loss!**
 
-### Permission Issues
+### "Installation appears corrupt" Warning
 
-**You'll see an Administrator permission prompt when applying settings for the first time. This is normal.**
+VSCode shows this because we modified its files. Harmless - can dismiss or ignore.
 
-- ✅ Click "Yes" to allow the script to modify VSCode files
-- ❌ If denied, the background won't be applied
-- 📝 Script location: `apply-settings.ps1` in extension directory
-- 🔒 Script only modifies VSCode's HTML/CSS files, not system files
+To hide the warning automatically, the extension injects CSS that hides the notification.
 
-If you encounter permission errors:
-1. Close all VSCode windows
-2. Run VSCode as Administrator
-3. Or manually run the script as Administrator: `apply-settings.ps1` in extension directory
+### Administrator Permission
 
-### Manual video files
+First time applying settings requires **Administrator privilege**:
 
-You can manually add videos into the `background-videos` folder. Use `Show Videos Folder` to display the exact path.
+✅ Normal and expected (modifying VSCode core system files)
+✅ Click "Yes" on UAC prompt
+❌ If denied, background won't apply
 
-Naming rules (required):
+Script location: Temporary PowerShell script in extension directory
+Scope: Only modifies VSCode's `workbench.desktop.main.js` file
 
-- `bg1.mp4`, `bg2.mp4`, `bg3.mp4` ...
-- Files are discovered in order starting from 1
+### File Locked Error
+
+If you see: **"File is locked" or "Access Denied"**
+
+**Root cause**: VSCode is currently using the workbench files
+
+**Solution**:
+1. Close all VSCode windows completely
+2. Right-click VSCode → "Run as Administrator"
+3. Open your workspace in admin VSCode
+4. Run `Install / Update` command again
 
 ## Supported Video Formats
 
-- MP4 (H.264/H.265)
-- WebM (VP8/VP9)
-- OGG (Theora)
+- **MP4** (H.264/H.265)
+- **WebM** (VP8/VP9)
+- **OGG** (Theora)
+- **HTTPS URLs** (streamed, not downloaded)
 
 ## Requirements
 
-- Visual Studio Code version 1.108.1 or higher
-- Windows: May require Administrator privileges for first-time setup
+- VSCode 1.108.1 or higher
+- Windows/Mac/Linux
+- Administrator privileges (first-time setup only)
 
 ## Troubleshooting
 
-### Background not showing
+### Background not showing after apply
 
-1. Run `Show Diagnostics` command to check paths
-2. Make sure VSCode was restarted after enabling
-3. Check if video files exist and are valid
+1. Make sure to **restart VSCode** (reload is not enough)
+2. Run `Show Diagnostics` to verify paths
+3. Check if video files still exist at specified paths
 
-### Permission denied
+### "Apply failed" error
 
-1. Make sure to accept the Administrator permission prompt
-2. Close all VSCode windows
-3. Run VSCode as Administrator
-4. Or manually run the script as Administrator: `apply-settings.ps1` in extension directory
+1. Close all VSCode windows
+2. Run VSCode as Administrator
+3. Try again
 
-### Video not playing
+### Settings not saving
 
-- Check video format (MP4/WebM/OGG)
+1. Check file permissions on `settings.json`
+2. Make sure you have write access to VSCode config directory
+3. Restart VSCode
+
+### Video won't play
+
+- Check format (MP4/WebM/OGG supported)
 - Try a different video file
-- Check browser console for errors (Help → Toggle Developer Tools)
+- Verify file path is correct
+- Run diagnostics with `Show Diagnostics` command
 
 ## Release Notes
 
-### 1.0.0
+### v2.0.0 - 2026-02-15
 
-- Video background support (MP4, WebM, OGG)
-- Multi-video rotation with configurable intervals
-- Infinite loop mode (switchInterval = 0)
-- Permission management tools
-- Cleanup command for safe uninstallation
-- Checksum fix for "Installation Corrupt" warning
+See [CHANGELOG.md](./CHANGELOG.md#200---2026-02-15) for complete details.
+
+**Key Improvements**:
+- Videos now persist across VSCode updates
+- Simplified settings model (edit settings.json directly)
+- Auto-recovery after updates
+- Auto-cleanup on uninstall
+- Better error messages
+- Cleaner single-file patching
+
+### Migration from v1
+
+Settings automatically migrated. Just:
+1. Open Settings
+2. Verify `vscodeBackground.videos` has your videos (paths, not copied)
+3. Run `Install / Update`
+4. Accept UAC prompt
+5. Restart
 
 ---
 
 ## For Developers
 
-### Building
+### Build
 
 ```bash
 npm install
 npm run compile
 ```
 
-### Testing
+### Watch Mode
+
+```bash
+npm run watch
+```
+
+### Test
 
 ```bash
 npm run test
 ```
 
-### Packaging
+### Package
 
 ```bash
 vsce package
+```
+
+### Project Structure
+
+```
+src/
+  ├── extension.ts          # Entry point, command registration
+  ├── background.ts         # Core logic (install, uninstall, diagnostics)
+  ├── patchGenerator.ts     # Generate JS code to inject
+  ├── patchFile.ts          # Patch read/write, version detection
+  ├── vscodePath.ts         # Path utilities, URL conversion
+  ├── constants.ts          # Version, markers, file names
+  ├── uninstall.ts          # Uninstall hook script
+  └── test/
+      └── extension.test.ts # Test suite
 ```
 
 **Enjoy your video backgrounds!**
@@ -231,70 +298,13 @@ vsce package
 
 ### Planned Features
 
-We're actively developing the following features to enhance your VSCode experience:
+- ✨ Image background support (JPG, PNG, GIF)
+- 🎨 More theme styles (Gradient, Vignette, etc.)
+- 🎬 Video transition effects (Fade, Slide, Zoom)
+- ⚙️ Per-workspace configurations
+- 🔊 Volume control and audio settings
+- 🎯 Time-based background switching
+- 📦 Built-in background library
+- 🌐 Cloud sync capabilities
 
-#### 🎬 Video Transition Effects
-- **Fade In/Out**: Smooth fade transitions between videos
-- **Slide Transitions**: Left, right, up, down sliding effects
-- **Zoom Effects**: Scale in/out animations
-- **Custom Duration**: Configurable transition animation duration
-
-#### 🎨 More Theme Styles
-- **Gradient Theme**: Colorful gradient overlay effects
-- **Blur Theme**: Adjustable background blur intensity
-- **Vignette Effect**: Darkened corners to focus on center
-- **Color Adjustments**: Saturation, brightness, contrast controls
-- **Custom CSS Themes**: Allow users to write custom theme styles
-
-#### 🖼️ Image Background Support
-- **Static Images**: Support JPG, PNG, GIF formats
-- **Image Carousel**: Multiple images rotating on schedule
-- **Mixed Playlist**: Combine images and videos in one playlist
-- **Image Filters**: B&W, vintage, vibrant, and more filters
-
-#### ⚙️ Advanced Configuration
-- **Playback Controls**:
-  - Random/Shuffle play mode
-  - Single/List loop modes
-  - Playback speed adjustment (0.5x - 2x)
-  - Video volume control (muted by default)
-- **Time-based Settings**:
-  - Auto-switch backgrounds by time of day
-  - Different backgrounds for work/break times
-  - Holiday special backgrounds
-
-#### 📦 Content Management
-- **Background Library**:
-  - Built-in curated background collection
-  - Download community-shared backgrounds
-  - Favorite and rating system
-- **Smart Categories**:
-  - By type (nature, tech, abstract, etc.)
-  - By mood (calm, energetic, focused, etc.)
-  - Custom tagging system
-
-#### 🔧 Performance Optimization
-- **Resource Preloading**: Preload next video for seamless transitions
-- **Memory Optimization**: Smart resource management
-- **GPU Acceleration**: Hardware-accelerated rendering
-- **Low-spec Mode**: Auto quality reduction on low-end devices
-
-#### 🌐 Cross-platform Sync
-- **Cloud Sync**: Sync settings across devices
-- **Import/Export**: One-click backup and restore
-- **Team Sharing**: Share configurations with team members
-
-#### 🎯 Enhanced Interactions
-- **Gesture Controls**: Quick switch backgrounds with hotkeys
-- **Context Menu**: Access features from editor right-click menu
-- **Status Bar**: Display current background info
-- **Preview Feature**: Preview background before applying
-
-### Feedback & Suggestions
-
-We value user feedback! If you have suggestions or ideas, please contact us:
-- Submit an Issue on GitHub
-- Leave a review on the marketplace
-- Send feedback via email
-
-Your support drives our continuous improvement! 🚀
+Your feedback drives our improvements! 🚀

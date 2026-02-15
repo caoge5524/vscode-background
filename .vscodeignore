@@ -9,3 +9,6 @@ vsc-extension-quickstart.md
 **/*.map
 **/*.ts
 **/.vscode-test.*
+TROUBLESHOOTING.md
+*.ps1
+*.bak
