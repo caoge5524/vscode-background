@@ -4,6 +4,9 @@ import * as path from 'path';
 /**
  * 查找 workbench.desktop.main.js 路径
  * 兼容不同 VSCode 安装方式和版本
+ * 
+ * 注意：VS Code 会定期更新版本哈希部分（如 b6a47e94e3），
+ * 导致路径改变。本函数每次都会动态寻找最新的路径。
  */
 export function getWorkbenchJsPath(appRoot: string): string | null {
     const baseDirs = new Set<string>();
@@ -12,6 +15,7 @@ export function getWorkbenchJsPath(appRoot: string): string | null {
     baseDirs.add(path.dirname(path.dirname(appRoot)));
 
     const possiblePaths: string[] = [];
+    const foundVersionHashes: string[] = [];
 
     for (const baseDir of baseDirs) {
         if (!fs.existsSync(baseDir)) { continue; }
@@ -26,11 +30,12 @@ export function getWorkbenchJsPath(appRoot: string): string | null {
             );
         }
 
-        // 检查版本哈希子目录
+        // 检查版本哈希子目录（VS Code 版本号）
         try {
             const entries = fs.readdirSync(baseDir, { withFileTypes: true });
             for (const entry of entries) {
                 if (entry.isDirectory() && /^[a-f0-9]{6,40}$/i.test(entry.name)) {
+                    foundVersionHashes.push(entry.name); // 记录找到的版本号
                     possiblePaths.push(
                         path.join(baseDir, entry.name, 'out', 'vs', 'workbench', 'workbench.desktop.main.js')
                     );
@@ -39,10 +44,19 @@ export function getWorkbenchJsPath(appRoot: string): string | null {
         } catch { /* ignore */ }
     }
 
-    for (const p of possiblePaths) {
-        if (fs.existsSync(p)) { return p; }
+    // 日志输出，帮助调试
+    if (foundVersionHashes.length > 0) {
+        console.log(`VSCode Background: 找到版本哈希: ${foundVersionHashes.join(', ')}`);
     }
 
+    for (const p of possiblePaths) {
+        if (fs.existsSync(p)) {
+            console.log(`VSCode Background: 工作台文件路径确认: ${p}`);
+            return p;
+        }
+    }
+
+    console.warn(`VSCode Background: 无法找到 workbench.desktop.main.js，搜索路径: ${JSON.stringify(Array.from(baseDirs))}`);
     return null;
 }
 

@@ -53,26 +53,58 @@ function main() {
             console.log('[vscode-background] No touch file found, nothing to clean up.');
             return;
         }
-        const jsPath = fs.readFileSync(touchFile, 'utf-8').trim();
-        if (!fs.existsSync(jsPath)) {
-            console.log('[vscode-background] Target JS file not found:', jsPath);
+        let jsPath;
+        try {
+            jsPath = fs.readFileSync(touchFile, 'utf-8').trim();
+        }
+        catch (e) {
+            console.warn('[vscode-background] Failed to read touch file:', e);
             return;
         }
-        let content = fs.readFileSync(jsPath, 'utf-8');
+        // 检查文件是否存在
+        if (!fs.existsSync(jsPath)) {
+            console.log('[vscode-background] Target JS file not found at:', jsPath);
+            console.log('[vscode-background] This is expected after VS Code updates. Cleaning up touch file.');
+            try {
+                fs.unlinkSync(touchFile);
+            }
+            catch { /* ignore */ }
+            return;
+        }
+        let content;
+        try {
+            content = fs.readFileSync(jsPath, 'utf-8');
+        }
+        catch (e) {
+            console.warn('[vscode-background] Failed to read target JS file:', e);
+            return;
+        }
         if (!content.includes(constants_js_1.PATCH_MARKER_START)) {
             console.log('[vscode-background] No patch found in target file.');
+            try {
+                fs.unlinkSync(touchFile);
+            }
+            catch { /* ignore */ }
             return;
         }
         // 移除补丁
         const regex = new RegExp(`\\n?${escapeRegex(constants_js_1.PATCH_MARKER_START)}[\\s\\S]*?${escapeRegex(constants_js_1.PATCH_MARKER_END)}\\n?`, 'g');
-        content = content.replace(regex, '').trimEnd() + '\n';
-        fs.writeFileSync(jsPath, content, 'utf-8');
-        console.log('[vscode-background] Successfully cleaned up patch from:', jsPath);
+        const cleaned = content.replace(regex, '').trimEnd() + '\n';
+        try {
+            fs.writeFileSync(jsPath, cleaned, 'utf-8');
+            console.log('[vscode-background] Successfully cleaned up patch from:', jsPath);
+        }
+        catch (e) {
+            console.warn('[vscode-background] Failed to write cleaned content:', e);
+            return;
+        }
         // 删除 touch 文件
         try {
             fs.unlinkSync(touchFile);
         }
-        catch { /* ignore */ }
+        catch (e) {
+            console.warn('[vscode-background] Failed to delete touch file:', e);
+        }
     }
     catch (error) {
         console.error('[vscode-background] Uninstall cleanup failed:', error);

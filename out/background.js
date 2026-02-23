@@ -44,18 +44,168 @@ const patchFile_js_1 = require("./patchFile.js");
 const patchGenerator_js_1 = require("./patchGenerator.js");
 class Background {
     context;
-    jsPath;
+    previousJsPath = null;
     isUpdatingConfig = false;
     configChangeTimer;
     constructor(context) {
         this.context = context;
-        this.jsPath = (0, vscodePath_js_1.getWorkbenchJsPath)(vscode.env.appRoot);
-        console.log(`VSCode Background v${constants_js_1.VERSION} - JS path: ${this.jsPath || 'NOT FOUND'}`);
+        const initialPath = (0, vscodePath_js_1.getWorkbenchJsPath)(vscode.env.appRoot);
+        this.previousJsPath = initialPath;
+        console.log(`VSCode Background v${constants_js_1.VERSION} - JS path: ${initialPath || 'NOT FOUND'}`);
+    }
+    /**
+     * 动态获取当前的 JS 路径
+     * 如果原路径不存在，自动寻找新路径（用于 VS Code 更新导致版本号改变的情况）
+     */
+    getJsPath() {
+        const currentPath = (0, vscodePath_js_1.getWorkbenchJsPath)(vscode.env.appRoot);
+        // 检查路径是否改变（例如版本号从 b6a47e94e3 变为其他值）
+        if (currentPath && currentPath !== this.previousJsPath) {
+            console.log(`VS Code path changed:\n  Old: ${this.previousJsPath}\n  New: ${currentPath}`);
+            // 尝试清理旧路径的过期补丁
+            this.cleanupOutdatedPatches();
+            this.previousJsPath = currentPath;
+        }
+        return currentPath;
+    }
+    /**
+     * 清理过期的补丁和 touch 文件
+     * 当 VS Code 版本号改变时，旧的补丁文件会变得无用且可能阻止卸载
+     */
+    cleanupOutdatedPatches() {
+        try {
+            const touchFile = path.join(this.context.extensionPath, constants_js_1.TOUCH_FILE_NAME);
+            if (!fs.existsSync(touchFile)) {
+                return; // 没有 touch 文件，无需清理
+            }
+            const oldJsPath = fs.readFileSync(touchFile, 'utf-8').trim();
+            // 如果 touch 文件指向的路径不存在，说明该路径已过期
+            if (!fs.existsSync(oldJsPath)) {
+                console.log(`[VSCode Background] Cleaning up outdated touch file pointing to: ${oldJsPath}`);
+                try {
+                    fs.unlinkSync(touchFile);
+                    console.log('[VSCode Background] Outdated touch file removed');
+                }
+                catch (e) {
+                    console.warn('[VSCode Background] Failed to remove outdated touch file:', e);
+                }
+                return;
+            }
+            // 如果文件存在，检查是否仍为当前版本的补丁
+            try {
+                const content = fs.readFileSync(oldJsPath, 'utf-8');
+                const patchType = (0, patchFile_js_1.getPatchType)(content);
+                // 如果没有补丁，更新 touch 文件指向当前路径
+                if (patchType === patchFile_js_1.PatchType.None) {
+                    console.log(`[VSCode Background] Patch at ${oldJsPath} no longer exists, cleaning up touch file`);
+                    try {
+                        fs.unlinkSync(touchFile);
+                    }
+                    catch { /* ignore */ }
+                }
+            }
+            catch (e) {
+                console.warn(`[VSCode Background] Failed to check old patch file: ${e}`);
+            }
+        }
+        catch (e) {
+            console.warn('[VSCode Background] Error during cleanup of outdated patches:', e);
+        }
+    }
+    /**
+     * 清理旧版本路径的补丁
+     * 当 VS Code 更新导致版本号改变，导致文件路径改变时调用此方法
+     * 这防止了旧目录中的文件阻止 VS Code 卸载
+     */
+    cleanupOldVersionPatches(currentJsPath) {
+        try {
+            const touchFile = path.join(this.context.extensionPath, constants_js_1.TOUCH_FILE_NAME);
+            if (!fs.existsSync(touchFile)) {
+                return;
+            }
+            const recordedPath = fs.readFileSync(touchFile, 'utf-8').trim();
+            // 路径没有改变，无需清理
+            if (recordedPath === currentJsPath) {
+                return;
+            }
+            // 旧路径仍然存在且包含补丁，需要清理
+            if (fs.existsSync(recordedPath)) {
+                try {
+                    const content = fs.readFileSync(recordedPath, 'utf-8');
+                    const patchType = (0, patchFile_js_1.getPatchType)(content);
+                    if (patchType !== patchFile_js_1.PatchType.None) {
+                        console.log(`[VSCode Background] Cleaning patch from old version path: ${recordedPath}`);
+                        const cleaned = (0, patchFile_js_1.cleanPatch)(content);
+                        fs.writeFileSync(recordedPath, cleaned, 'utf-8');
+                        console.log('[VSCode Background] Old version patch cleaned successfully');
+                    }
+                }
+                catch (e) {
+                    console.warn(`[VSCode Background] Failed to clean old version patch: ${e}`);
+                    // 不抛出错误，继续执行
+                }
+            }
+        }
+        catch (e) {
+            console.warn('[VSCode Background] Error during cleanup of old version patches:', e);
+        }
+    }
+    /**
+     * 修复之前版本可能被 Copy-Item 破坏的文件权限
+     * 旧版本使用 Copy-Item -Force 以管理员权限写入文件，这会把文件所有者改为 Administrator，
+     * 导致 VS Code 更新程序（以普通用户运行）无法修改/删除该文件及其所在目录。
+     * 此方法在启动时检测并修复此问题。
+     */
+    repairFilePermissions() {
+        if (process.platform !== 'win32') {
+            return;
+        }
+        try {
+            const touchFile = path.join(this.context.extensionPath, constants_js_1.TOUCH_FILE_NAME);
+            if (!fs.existsSync(touchFile)) {
+                return;
+            }
+            const recordedPath = fs.readFileSync(touchFile, 'utf-8').trim();
+            if (!fs.existsSync(recordedPath)) {
+                return;
+            }
+            // 尝试用当前用户写入文件来检测权限是否正常
+            try {
+                fs.accessSync(recordedPath, fs.constants.W_OK);
+                // 当前用户有写入权限，无需修复
+                return;
+            }
+            catch {
+                // 没有写入权限，可能需要修复
+            }
+            console.log(`[VSCode Background] Detected permission issue on: ${recordedPath}`);
+            console.log('[VSCode Background] Attempting to repair file permissions (resetting ACL to inherit from parent)...');
+            // 使用 icacls 重置文件 ACL 为从父目录继承（不需要管理员权限即可尝试）
+            const escapedPath = recordedPath.replace(/"/g, '\\"');
+            (0, child_process_1.exec)(`icacls "${escapedPath}" /reset /Q`, { timeout: 10000 }, (error) => {
+                if (error) {
+                    console.warn('[VSCode Background] Failed to repair file permissions with icacls:', error.message);
+                    console.warn('[VSCode Background] VS Code updates may fail. Consider running VS Code as admin once to fix.');
+                }
+                else {
+                    console.log('[VSCode Background] File permissions repaired successfully');
+                }
+            });
+        }
+        catch (e) {
+            console.warn('[VSCode Background] Error during permission repair check:', e);
+        }
     }
     // ========== 公共 API ==========
     /** 启动时检查补丁状态，如有需要提示重新应用 */
     async checkAndPrompt() {
-        if (!this.jsPath) {
+        // 先清理过期的 touch 文件，防止卸载失败
+        this.cleanupOutdatedPatches();
+        // 修复之前版本可能被 Copy-Item 破坏的文件权限
+        this.repairFilePermissions();
+        const jsPath = this.getJsPath();
+        if (!jsPath) {
+            console.warn('Cannot locate workbench.desktop.main.js - path detection failed');
             return;
         }
         const config = this.getConfig();
@@ -63,11 +213,16 @@ class Background {
             return;
         }
         try {
-            const content = fs.readFileSync(this.jsPath, 'utf-8');
+            // 检查文件是否存在
+            if (!fs.existsSync(jsPath)) {
+                console.warn(`JS path exists in detection but file not found at: ${jsPath}`);
+                return;
+            }
+            const content = fs.readFileSync(jsPath, 'utf-8');
             const patchType = (0, patchFile_js_1.getPatchType)(content);
             if (patchType === patchFile_js_1.PatchType.None) {
-                // VSCode 更新后补丁丢失
-                const action = await vscode.window.showInformationMessage('VSCode Background: 检测到背景设置丢失（可能是 VSCode 更新导致），是否重新应用？', '重新应用', '稍后');
+                // VS Code 更新后补丁丢失
+                const action = await vscode.window.showInformationMessage('VSCode Background: 检测到背景设置丢失（可能是 VS Code 更新导致），是否重新应用？', '重新应用', '稍后');
                 if (action === '重新应用') {
                     await this.install();
                 }
@@ -86,10 +241,13 @@ class Background {
     }
     /** 安装/更新视频背景 */
     async install() {
-        if (!this.jsPath) {
+        const jsPath = this.getJsPath();
+        if (!jsPath) {
             vscode.window.showErrorMessage('无法定位 VSCode 工作台文件 (workbench.desktop.main.js)');
             return;
         }
+        // 清理旧版本路径的补丁（防止 VS Code 卸载时出错）
+        this.cleanupOldVersionPatches(jsPath);
         const config = this.getConfig();
         if (config.videos.length === 0) {
             const action = await vscode.window.showWarningMessage('未配置视频文件。请先在 settings.json 的 "vscodeBackground.videos" 中添加视频路径，或使用"添加视频"命令。', '添加视频', '编辑 settings.json', '打开设置', '取消');
@@ -116,7 +274,7 @@ class Background {
             }
         }
         try {
-            const content = fs.readFileSync(this.jsPath, 'utf-8');
+            const content = fs.readFileSync(jsPath, 'utf-8');
             const patchCode = (0, patchGenerator_js_1.generatePatch)({
                 videos: config.videos,
                 opacity: config.opacity,
@@ -125,12 +283,12 @@ class Background {
             });
             const patched = (0, patchFile_js_1.applyPatch)(content, patchCode);
             // 尝试直接写入
-            const writeSuccess = await this.writeFile(this.jsPath, patched);
+            const writeSuccess = await this.writeFile(jsPath, patched);
             if (!writeSuccess) {
                 return;
             }
             // 写入 touch 文件供卸载钩子使用
-            this.writeTouchFile(this.jsPath);
+            this.writeTouchFile(jsPath);
             // 清理旧版 v1 补丁（HTML + CSS）
             await this.cleanupV1Patches();
             // 更新启用状态
@@ -149,19 +307,20 @@ class Background {
     }
     /** 卸载视频背景 */
     async uninstall() {
-        if (!this.jsPath) {
+        const jsPath = this.getJsPath();
+        if (!jsPath) {
             vscode.window.showErrorMessage('无法定位 VSCode 工作台文件');
             return;
         }
         try {
-            const content = fs.readFileSync(this.jsPath, 'utf-8');
+            const content = fs.readFileSync(jsPath, 'utf-8');
             const patchType = (0, patchFile_js_1.getPatchType)(content);
             if (patchType === patchFile_js_1.PatchType.None) {
                 vscode.window.showInformationMessage('当前没有应用任何背景补丁。');
                 return;
             }
             const cleaned = (0, patchFile_js_1.cleanPatch)(content);
-            const writeSuccess = await this.writeFile(this.jsPath, cleaned);
+            const writeSuccess = await this.writeFile(jsPath, cleaned);
             if (!writeSuccess) {
                 return;
             }
@@ -223,12 +382,13 @@ class Background {
     async showDiagnostics() {
         const config = this.getConfig();
         const appRoot = vscode.env.appRoot;
+        const jsPath = this.getJsPath();
         let info = `VSCode Background v${constants_js_1.VERSION} - 诊断信息\n`;
         info += `${'='.repeat(50)}\n\n`;
         info += `VSCode 版本: ${vscode.version}\n`;
         info += `平台: ${process.platform}\n`;
         info += `App Root: ${appRoot}\n`;
-        info += `工作台 JS 路径: ${this.jsPath || '未找到'}\n\n`;
+        info += `工作台 JS 路径: ${jsPath || '未找到'}\n\n`;
         info += `当前配置:\n`;
         info += `  启用: ${config.enabled}\n`;
         info += `  视频数量: ${config.videos.length}\n`;
@@ -244,13 +404,13 @@ class Background {
             });
             info += '\n';
         }
-        if (this.jsPath) {
+        if (jsPath) {
             try {
-                const content = fs.readFileSync(this.jsPath, 'utf-8');
+                const content = fs.readFileSync(jsPath, 'utf-8');
                 const patchType = (0, patchFile_js_1.getPatchType)(content);
                 info += `补丁状态: ${patchType}\n`;
                 try {
-                    fs.accessSync(this.jsPath, fs.constants.W_OK);
+                    fs.accessSync(jsPath, fs.constants.W_OK);
                     info += `写入权限: ✓ 可写\n`;
                 }
                 catch {
@@ -291,7 +451,8 @@ class Background {
         }
         this.configChangeTimer = setTimeout(async () => {
             const config = this.getConfig();
-            if (config.enabled && this.jsPath) {
+            const jsPath = this.getJsPath();
+            if (config.enabled && jsPath) {
                 const action = await vscode.window.showInformationMessage('配置已更改，是否重新应用背景设置？', '应用', '编辑 settings.json', '稍后');
                 if (action === '应用') {
                     await this.install();
@@ -339,7 +500,7 @@ class Background {
         if (confirm !== '确认') {
             return false;
         }
-        // 将内容写入临时文件，再通过管理员权限复制到目标位置
+        // 将内容写入临时文件，再通过管理员权限写入目标文件
         const tempFile = path.join(this.context.extensionPath, 'temp-patch.js');
         const resultFile = path.join(this.context.extensionPath, 'patch-result.txt');
         try {
@@ -347,12 +508,20 @@ class Background {
         }
         catch { /* ignore */ }
         fs.writeFileSync(tempFile, content, 'utf-8');
+        // 关键修复：使用 WriteAllText 直接写入内容到现有文件，而不是用 Copy-Item 替换文件
+        // Copy-Item 会替换整个文件（包括 ACL 和所有者），导致文件权限变为 Administrator
+        // 这会阻止 VS Code 更新程序（以普通用户运行）访问/删除该文件及其所在目录
+        // WriteAllText 只修改文件内容，保留原有的权限和所有者
+        const escapedTempFile = tempFile.replace(/'/g, "''");
+        const escapedFilePath = filePath.replace(/'/g, "''");
+        const escapedResultFile = resultFile.replace(/'/g, "''");
         const script = [
             'try {',
-            `    Copy-Item -LiteralPath '${tempFile.replace(/'/g, "''")}' -Destination '${filePath.replace(/'/g, "''")}' -Force`,
-            `    'SUCCESS' | Out-File -FilePath '${resultFile.replace(/'/g, "''")}' -Encoding UTF8`,
+            `    $content = [System.IO.File]::ReadAllText('${escapedTempFile}', [System.Text.Encoding]::UTF8)`,
+            `    [System.IO.File]::WriteAllText('${escapedFilePath}', $content, (New-Object System.Text.UTF8Encoding $false))`,
+            `    'SUCCESS' | Out-File -FilePath '${escapedResultFile}' -Encoding UTF8`,
             '} catch {',
-            `    "FAILED: \$(\$_.Exception.Message)" | Out-File -FilePath '${resultFile.replace(/'/g, "''")}' -Encoding UTF8`,
+            `    "FAILED: \$(\$_.Exception.Message)" | Out-File -FilePath '${escapedResultFile}' -Encoding UTF8`,
             '}',
         ].join('\r\n');
         const scriptFile = path.join(this.context.extensionPath, 'elevate.ps1');

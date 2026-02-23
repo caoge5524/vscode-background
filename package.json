@@ -99,11 +99,21 @@
           "default": "glass",
           "enum": [
             "glass",
-            "matte"
+            "matte",
+            "neon",
+            "cinema",
+            "aurora",
+            "minimal",
+            "retro"
           ],
           "enumDescriptions": [
             "%config.theme.glass%",
-            "%config.theme.matte%"
+            "%config.theme.matte%",
+            "%config.theme.neon%",
+            "%config.theme.cinema%",
+            "%config.theme.aurora%",
+            "%config.theme.minimal%",
+            "%config.theme.retro%"
           ],
           "scope": "application",
           "markdownDescription": "%config.theme%",
