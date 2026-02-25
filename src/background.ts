@@ -489,7 +489,7 @@ export class Background {
                     await vscode.commands.executeCommand('workbench.action.openSettingsJson');
                 }
             }
-        }, 1500);
+        }, 500);
     }
 
     // ========== 内部方法 ==========
