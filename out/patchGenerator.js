@@ -107,12 +107,11 @@ document.head.appendChild(s);
 function getThemeCss(theme, opacity) {
     switch (theme) {
         case 'matte': {
-            // 磨砂 — 半透明模糊毛玻璃效果
-            const bgAlpha = Math.max(0.4, (1 - opacity) * 0.6);
+            // 移除磨砂效果，改为普通深色背景，避免遮挡
             return [
-                `.monaco-workbench{opacity:${opacity}!important;background:rgba(30,30,30,${bgAlpha})!important;backdrop-filter:blur(12px) saturate(180%);-webkit-backdrop-filter:blur(12px) saturate(180%)}`,
-                `.monaco-workbench .part{background:rgba(40,40,40,0.3)!important;backdrop-filter:blur(8px)}`,
-                `.monaco-workbench .editor-container{background:rgba(25,25,25,0.4)!important;backdrop-filter:blur(6px)}`,
+                `.monaco-workbench{opacity:${opacity}!important;background:#232323!important;}`,
+                `.monaco-workbench .part{background:#232323!important;}`,
+                `.monaco-workbench .editor-container{background:#232323!important;}`,
                 `body{background:transparent!important}`,
             ].join('');
         }

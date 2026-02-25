@@ -12,7 +12,7 @@
   "config.switchInterval": "视频切换间隔（秒）。\n\n设为 `0` 可循环播放当前视频。\n\n最小有效值：10 秒。",
   "config.theme": "背景主题风格",
   "config.theme.glass": "玻璃 — 完全透明，清晰看到视频",
-  "config.theme.matte": "磨砂 — 半透明模糊毛玻璃效果",
+  "config.theme.matte": "深色 — 深色背景，无模糊无磨砂效果",
   "config.theme.neon": "霓虹 — 赛博朋克风格，荧光边框发光效果",
   "config.theme.cinema": "影院 — 暗色电影风格，顶底黑边营造宽屏感",
   "config.theme.aurora": "极光 — 彩色渐变光晕叠加，梦幻氛围",

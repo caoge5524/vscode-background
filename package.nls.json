@@ -12,7 +12,7 @@
   "config.switchInterval": "Seconds between switching videos.\n\nSet to `0` to loop the current video forever.\n\nMinimum effective value: 10 seconds.",
   "config.theme": "Background theme style",
   "config.theme.glass": "Glass — Fully transparent, video shows clearly",
-  "config.theme.matte": "Matte — Semi-transparent frosted glass effect with blur",
+  "config.theme.matte": "Matte — Dark background, no blur or frosted effect",
   "config.theme.neon": "Neon — Cyberpunk style with glowing cyan/magenta borders",
   "config.theme.cinema": "Cinema — Dark cinematic look with letterbox-style bars",
   "config.theme.aurora": "Aurora — Colorful gradient overlay with soft glow",

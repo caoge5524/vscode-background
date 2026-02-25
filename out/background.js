@@ -344,18 +344,13 @@ class Background {
     }
     /** 通过文件选择器添加视频 */
     async addVideos() {
-        let selectedFiles;
-        if (process.platform === 'win32') {
-            selectedFiles = await this.selectVideosWindows();
-        }
-        if (!selectedFiles) {
-            selectedFiles = await this.selectVideosFallback();
-        }
+        // 只使用VSCode文件选择对话框
+        const selectedFiles = await this.selectVideosFallback();
         if (!selectedFiles || selectedFiles.length === 0) {
             return;
         }
         // 检测是否包含非英文字符
-        const nonEnglishFiles = selectedFiles.filter(f => !/^[a-zA-Z0-9:\\/\-._()\s]*$/.test(f));
+        const nonEnglishFiles = selectedFiles.filter(f => !/^[a-zA-Z0-9:\/\-._()\s]*$/.test(f));
         if (nonEnglishFiles.length > 0) {
             const action = await vscode.window.showWarningMessage(`检测到 ${nonEnglishFiles.length} 个文件路径包含非英文字符，建议在插件设置中添加。\n\n如需继续，请在 settings.json 中手动添加这些路径。`, '编辑 settings.json', '取消');
             if (action === '编辑 settings.json') {
