@@ -185,6 +185,21 @@ If you see: **"File is locked" or "Access Denied"**
 3. Open your workspace in admin VSCode
 4. Run `Install / Update` command again
 
+## File Locked / Access Denied Error Popup
+
+![VSCode Access Denied Error](images\1772113146474.png)
+
+As shown above, if you see a popup error like "Access Denied" or "Failed to create file handle", it means some VSCode processes are still running and locking files.
+
+**This error does NOT harm your files or system. Just fully close all VSCode windows and try again.**
+
+- Solution:
+  1. Close all VSCode windows
+  2. Right-click VSCode → Run as Administrator
+  3. Retry the install/uninstall command
+
+---
+
 ## Supported Video Formats
 
 - **MP4** (H.264/H.265)
