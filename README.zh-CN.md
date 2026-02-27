@@ -19,7 +19,7 @@
 ## 效果示例
 
 > 视频背景实际效果：
-<video src="./images/效果示例.mp4" controls width="600"></video>
+![效果示例](./images/效果示例.gif)
 
 ---
 ## v2.0.0 新特性

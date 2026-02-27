@@ -19,7 +19,7 @@ English | [简体中文](./README.zh-CN.md)
 ## Demo
 
 > Real video background effect:
-<video src="./images/效果示例.mp4" controls width="600"></video>
+![Demo](./images/效果示例.gif)
 
 ---
 ## What's New in v2.0.0
