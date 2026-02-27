@@ -16,6 +16,12 @@ English | [简体中文](./README.zh-CN.md)
 - **Multiple Themes**: Glass (transparent) and Matte (frosted glass with blur) themes
 - **Customizable Settings**: Opacity, switch interval, theme selection
 
+## Demo
+
+> Real video background effect:
+<video src="./images/效果示例.mp4" controls width="600"></video>
+
+---
 ## What's New in v2.0.0
 
 **Major Architecture Rewrite**:
@@ -53,7 +59,14 @@ See [CHANGELOG.md](./CHANGELOG.md) for complete upgrade details and migration gu
 
 ### Recommended: Direct Settings.json Editing
 
+
 Open Settings (`Ctrl+,`) and search "VSCode Background":
+
+#### Settings UI Example
+![Settings UI](./images/设置.png)
+
+#### Command Line Example
+![Command Line](./images/命令行.png)
 
 ```json
 {
@@ -184,10 +197,10 @@ If you see: **"File is locked" or "Access Denied"**
 2. Right-click VSCode → "Run as Administrator"
 3. Open your workspace in admin VSCode
 4. Run `Install / Update` command again
-
+3
 ## File Locked / Access Denied Error Popup
 
-![VSCode Access Denied Error](images\1772113146474.png)
+![VSCode Access Denied Error](./images/弹窗1.png)
 
 As shown above, if you see a popup error like "Access Denied" or "Failed to create file handle", it means some VSCode processes are still running and locking files.
 
