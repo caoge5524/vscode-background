@@ -8,6 +8,16 @@ All notable changes to the "vscode-background" extension will be documented in t
 
 ## English
 
+### [2.0.0] - 2026-02-27
+
+#### Documentation Improvements
+
+- Optimized README.md and README.zh-CN.md:
+  - Added video demo using HTML <video> tag for direct playback in VSCode Marketplace.
+  - Added Settings UI and Command Line screenshots for clearer usage guidance.
+  - Unified error popup image references for consistency.
+  - Improved Markdown structure and visual presentation.
+
 ### [2.0.0] - 2026-02-15
 
 #### Major Rewrite - Architecture & Implementation Redesign
@@ -304,6 +314,16 @@ After:  $appRoot/../../../../../../background-videos
 ---
 
 ## 简体中文
+
+### [2.0.0] - 2026-02-27
+
+#### 文档优化
+
+- 优化 README.md 和 README.zh-CN.md：
+  - 使用 HTML <video> 标签嵌入视频演示，支持市场直接播放。
+  - 增加设置界面和命令行截图，提升使用指引。
+  - 统一错误弹窗图片引用，保持一致性。
+  - 改进 Markdown 结构和视觉展示。
 
 ### [2.0.0] - 2026-02-15
 
