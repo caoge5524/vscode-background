@@ -18,8 +18,7 @@ English | [简体中文](./README.zh-CN.md)
 
 ## Demo
 
-> Real video background effect:
-![Demo](./images/效果示例.gif)
+>![Demo](./images/效果示例.gif)
 
 ---
 ## What's New in v2.0.0
@@ -204,12 +203,12 @@ If you see: **"File is locked" or "Access Denied"**
 
 As shown above, if you see a popup error like "Access Denied" or "Failed to create file handle", it means some VSCode processes are still running and locking files.
 
-**This error does NOT harm your files or system. Just fully close all VSCode windows and try again.**
+**This error does NOT harm your files or system**
 
 - Solution:
   1. Close all VSCode windows
-  2. Right-click VSCode → Run as Administrator
-  3. Retry the install/uninstall command
+  2. Delete the PkgExplorerPlugin.dll file
+  >![1772265853829](./images/解决1.png)
 
 ---
 

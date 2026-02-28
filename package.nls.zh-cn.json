@@ -5,6 +5,7 @@
   "cmd.uninstall": "VSCode Background: 卸载背景",
   "cmd.addVideos": "VSCode Background: 添加视频",
   "cmd.diagnostics": "VSCode Background: 显示诊断信息",
+  "cmd.manageVideos": "VSCode Background: 管理视频",
   "config.title": "VSCode 视频背景",
   "config.enabled": "启用/禁用视频背景。\n\n更改后请运行 **安装/更新** 命令以应用。",
   "config.videos": "视频文件路径。支持：\n- 本地绝对路径：`C:\\\\Videos\\\\bg.mp4` 或 `/home/user/videos/bg.mp4`\n- `file:///` 地址\n- `https://` 地址\n\n**视频文件保留在原位**，不会受 VSCode 更新影响。",

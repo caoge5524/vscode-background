@@ -55,6 +55,10 @@
       {
         "command": "vscode-background.diagnostics",
         "title": "%cmd.diagnostics%"
+      },
+      {
+        "command": "vscode-background.manageVideos",
+        "title": "%cmd.manageVideos%"
       }
     ],
     "configuration": {
