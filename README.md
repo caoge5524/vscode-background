@@ -199,7 +199,7 @@ If you see: **"File is locked" or "Access Denied"**
 3
 ## File Locked / Access Denied Error Popup
 
-![VSCode Access Denied Error](./images/弹窗1.png)
+![VSCode Access Denied Error](./images/pop-up1.png)
 
 As shown above, if you see a popup error like "Access Denied" or "Failed to create file handle", it means some VSCode processes are still running and locking files.
 
@@ -208,7 +208,7 @@ As shown above, if you see a popup error like "Access Denied" or "Failed to crea
 - Solution:
   1. Close all VSCode windows
   2. Delete the PkgExplorerPlugin.dll file
-  >![1772265853829](./images/解决1.png)
+  >![1772265853829](./images/solution1.png)
 
 ---
 
