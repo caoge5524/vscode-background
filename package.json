@@ -2,7 +2,7 @@
   "name": "vscode-background",
   "displayName": "%ext.displayName%",
   "description": "%ext.description%",
-  "version": "2.0.2",
+  "version": "2.0.3",
   "publisher": "caoge",
   "author": {
     "name": "操歌"
@@ -55,6 +55,10 @@
       {
         "command": "vscode-background.diagnostics",
         "title": "%cmd.diagnostics%"
+      },
+      {
+        "command": "vscode-background.manageVideos",
+        "title": "%cmd.manageVideos%"
       }
     ],
     "configuration": {

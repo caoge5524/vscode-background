@@ -5,6 +5,7 @@
   "cmd.uninstall": "VSCode Background: Uninstall",
   "cmd.addVideos": "VSCode Background: Add Videos",
   "cmd.diagnostics": "VSCode Background: Show Diagnostics",
+  "cmd.manageVideos": "VSCode Background: Manage Videos",
   "config.title": "VSCode Background",
   "config.enabled": "Enable/disable video background.\n\nAfter changing, run **Install/Update** command to apply.",
   "config.videos": "Video file paths. Supports:\n- Absolute local paths: `C:\\\\Videos\\\\bg.mp4` or `/home/user/videos/bg.mp4`\n- `file:///` URLs\n- `https://` URLs\n\n**Videos stay at their original location** and are NOT affected by VSCode updates.",

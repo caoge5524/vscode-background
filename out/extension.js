@@ -42,7 +42,7 @@ function activate(context) {
     console.log('VSCode Background extension activated');
     background = new background_js_1.Background(context);
     // 注册命令
-    context.subscriptions.push(vscode.commands.registerCommand('vscode-background.install', () => background.install()), vscode.commands.registerCommand('vscode-background.uninstall', () => background.uninstall()), vscode.commands.registerCommand('vscode-background.addVideos', () => background.addVideos()), vscode.commands.registerCommand('vscode-background.diagnostics', () => background.showDiagnostics()));
+    context.subscriptions.push(vscode.commands.registerCommand('vscode-background.install', () => background.install()), vscode.commands.registerCommand('vscode-background.uninstall', () => background.uninstall()), vscode.commands.registerCommand('vscode-background.addVideos', () => background.addVideos()), vscode.commands.registerCommand('vscode-background.diagnostics', () => background.showDiagnostics()), vscode.commands.registerCommand('vscode-background.manageVideos', () => background.manageVideos()));
     // 监听配置变更
     context.subscriptions.push(vscode.workspace.onDidChangeConfiguration(e => {
         if (e.affectsConfiguration('vscodeBackground')) {

@@ -14,6 +14,7 @@ export function activate(context: vscode.ExtensionContext) {
 		vscode.commands.registerCommand('vscode-background.uninstall', () => background.uninstall()),
 		vscode.commands.registerCommand('vscode-background.addVideos', () => background.addVideos()),
 		vscode.commands.registerCommand('vscode-background.diagnostics', () => background.showDiagnostics()),
+		vscode.commands.registerCommand('vscode-background.manageVideos', () => background.manageVideos()),
 	);
 
 	// 监听配置变更

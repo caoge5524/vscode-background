@@ -197,6 +197,209 @@ class Background {
         }
     }
     // ========== 公共 API ==========
+    /** 管理视频/图片顺序与删除（Webview 拖拽排序） */
+    async manageVideos() {
+        const config = vscode.workspace.getConfiguration('vscodeBackground');
+        let videos = config.get('videos', []);
+        if (!videos.length) {
+            vscode.window.showInformationMessage('当前未配置任何视频或图片。');
+            return;
+        }
+        const panel = vscode.window.createWebviewPanel('vscodeBackgroundManageVideos', '管理媒体顺序', vscode.ViewColumn.Active, { enableScripts: true });
+        // 生成 HTML
+        panel.webview.html = `
+    <!DOCTYPE html>
+    <html lang="zh-CN">
+    <head>
+        <meta charset="UTF-8">
+        <title>管理媒体顺序</title>
+        <style>
+            body { font-family: sans-serif; background: #232323; color: #eee; }
+            ul { list-style: none; padding: 0; }
+            li { padding: 8px 12px; margin: 4px 0; background: #333; border-radius: 4px; cursor: grab; display: flex; align-items: center; }
+            li.dragging { opacity: 0.5; }
+            .del { margin-left: auto; color: #f55; cursor: pointer; }
+            button { margin: 12px 8px 0 0; }
+            .drag-over-top { border-top: 2px solid #4af; }
+            .drag-over-bottom { border-bottom: 2px solid #4af; }
+            .toolbar { margin-bottom: 10px; }
+        </style>
+    </head>
+    <body>
+        <h3>拖拽排序，点击删除</h3>
+        <div class="toolbar">
+            <button id="addFile">添加文件</button>
+        </div>
+        <ul id="list">
+            ${videos.map((v, i) => `<li draggable="true" data-idx="${i}">${v}<span class="del" title="删除">🗑️</span></li>`).join('')}
+        </ul>
+        <button id="save">保存</button>
+        <button id="cancel">取消</button>
+        <script>
+            const vscode = acquireVsCodeApi();
+            let dragging = null;
+            let dragIdx = null;
+            const list = document.getElementById('list');
+            function clearDragOver() {
+                document.querySelectorAll('li').forEach(li => {
+                    li.classList.remove('drag-over-top', 'drag-over-bottom');
+                });
+            }
+            document.querySelectorAll('li').forEach(li => {
+                li.addEventListener('dragstart', e => {
+                    dragging = li;
+                    dragIdx = +li.dataset.idx;
+                    li.classList.add('dragging');
+                });
+                li.addEventListener('dragend', e => {
+                    dragging = null;
+                    dragIdx = null;
+                    li.classList.remove('dragging');
+                    clearDragOver();
+                });
+                li.addEventListener('dragover', e => {
+                    e.preventDefault();
+                    if (!dragging || dragging === li) return;
+                    const rect = li.getBoundingClientRect();
+                    const offset = e.clientY - rect.top;
+                    clearDragOver();
+                    if (offset < rect.height / 2) {
+                        li.classList.add('drag-over-top');
+                    } else {
+                        li.classList.add('drag-over-bottom');
+                    }
+                });
+                li.addEventListener('drop', e => {
+                    e.preventDefault();
+                    if (!dragging || dragging === li) return;
+                    const rect = li.getBoundingClientRect();
+                    const offset = e.clientY - rect.top;
+                    if (offset < rect.height / 2) {
+                        list.insertBefore(dragging, li);
+                    } else {
+                        list.insertBefore(dragging, li.nextSibling);
+                    }
+                    clearDragOver();
+                });
+                li.querySelector('.del').onclick = e => {
+                    li.remove();
+                };
+            });
+            // 仅当鼠标接近ul顶部时才显示最上方蓝线
+            list.addEventListener('dragover', e => {
+                e.preventDefault();
+                if (!dragging) return;
+                const first = list.firstElementChild;
+                if (first && e.target === list) {
+                    // 只在鼠标距离ul顶部8px内才显示最上方蓝线
+                    const ulRect = list.getBoundingClientRect();
+                    if (e.clientY - ulRect.top < 8) {
+                        clearDragOver();
+                        first.classList.add('drag-over-top');
+                    } else {
+                        clearDragOver();
+                    }
+                }
+            });
+            list.addEventListener('drop', e => {
+                e.preventDefault();
+                if (!dragging) return;
+                const first = list.firstElementChild;
+                if (first && e.target === list) {
+                    const ulRect = list.getBoundingClientRect();
+                    if (e.clientY - ulRect.top < 8) {
+                        list.insertBefore(dragging, first);
+                        clearDragOver();
+                    }
+                }
+            });
+            document.getElementById('addFile').onclick = () => {
+                vscode.postMessage({ type: 'addFileDialog' });
+            };
+            document.getElementById('save').onclick = () => {
+                const newList = Array.from(document.querySelectorAll('li')).map(li => li.childNodes[0].textContent);
+                vscode.postMessage({ type: 'save', videos: newList });
+            };
+            document.getElementById('cancel').onclick = () => {
+                vscode.postMessage({ type: 'cancel' });
+            };
+            // 接收主进程消息，动态添加新项
+            window.addEventListener('message', event => {
+                const msg = event.data;
+                if (msg.type === 'addFiles') {
+                    for (const file of msg.files) {
+                        const li = document.createElement('li');
+                        li.draggable = true;
+                        li.innerHTML = file + '<span class="del" title="删除">🗑️</span>';
+                        li.querySelector('.del').onclick = e => li.remove();
+                        list.insertBefore(li, list.firstChild);
+                        // 重新绑定拖拽事件
+                        li.addEventListener('dragstart', e => {
+                            dragging = li;
+                            li.classList.add('dragging');
+                        });
+                        li.addEventListener('dragend', e => {
+                            dragging = null;
+                            li.classList.remove('dragging');
+                            clearDragOver();
+                        });
+                        li.addEventListener('dragover', e => {
+                            e.preventDefault();
+                            if (!dragging || dragging === li) return;
+                            const rect = li.getBoundingClientRect();
+                            const offset = e.clientY - rect.top;
+                            clearDragOver();
+                            if (offset < rect.height / 2) {
+                                li.classList.add('drag-over-top');
+                            } else {
+                                li.classList.add('drag-over-bottom');
+                            }
+                        });
+                        li.addEventListener('drop', e => {
+                            e.preventDefault();
+                            if (!dragging || dragging === li) return;
+                            const rect = li.getBoundingClientRect();
+                            const offset = e.clientY - rect.top;
+                            if (offset < rect.height / 2) {
+                                list.insertBefore(dragging, li);
+                            } else {
+                                list.insertBefore(dragging, li.nextSibling);
+                            }
+                            clearDragOver();
+                        });
+                    }
+                }
+            });
+        </script>
+    </body>
+    </html>
+        `;
+        panel.webview.onDidReceiveMessage(async (msg) => {
+            if (msg.type === 'save') {
+                await config.update('videos', msg.videos, vscode.ConfigurationTarget.Global);
+                vscode.window.showInformationMessage('已保存媒体顺序。');
+                panel.dispose();
+            }
+            else if (msg.type === 'cancel') {
+                panel.dispose();
+            }
+            else if (msg.type === 'addFileDialog') {
+                // 弹出文件选择器
+                let files = await this.selectVideosFallback();
+                if (files && files.length) {
+                    // 过滤掉包含非英文字符的路径，提示用户手动添加
+                    const nonEnglishFiles = files.filter(f => !/^[a-zA-Z0-9:./\\\-_'()\s]*$/.test(f));
+                    if (nonEnglishFiles.length > 0) {
+                        vscode.window.showWarningMessage(`检测到 ${nonEnglishFiles.length} 个文件路径包含非英文字符，建议在插件设置中手动添加。`);
+                        files = files.filter(f => !nonEnglishFiles.includes(f));
+                    }
+                    if (files.length) {
+                        panel.webview.postMessage({ type: 'addFiles', files });
+                    }
+                }
+            }
+        });
+    }
     /** 启动时检查补丁状态，如有需要提示重新应用 */
     async checkAndPrompt() {
         // 先清理过期的 touch 文件，防止卸载失败
@@ -456,7 +659,7 @@ class Background {
                     await vscode.commands.executeCommand('workbench.action.openSettingsJson');
                 }
             }
-        }, 500);
+        }, 200);
     }
     // ========== 内部方法 ==========
     getConfig() {
