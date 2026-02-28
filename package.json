@@ -2,7 +2,7 @@
   "name": "vscode-background",
   "displayName": "%ext.displayName%",
   "description": "%ext.description%",
-  "version": "2.0.3",
+  "version": "2.0.4",
   "publisher": "caoge",
   "author": {
     "name": "操歌"

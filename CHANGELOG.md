@@ -8,6 +8,23 @@ All notable changes to the "vscode-background" extension will be documented in t
 
 ## English
 
+### [2.0.4] - 2026-02-28
+
+#### UI Improvements
+
+- Enhanced the "Manage video/image order and deletion" Webview:
+  - Modernized the visual style: gradient backgrounds, rounded corners, shadow, and improved button design.
+  - Increased media list row width for better readability and aesthetics.
+  - Improved drag-and-drop experience and overall usability.
+
+### [2.0.3] - 2026-02-28
+
+#### New Features & Improvements
+
+- Added "Manage video/image order and deletion" feature (Webview drag-and-drop sorting). Users can visually adjust media order, delete or add files in the settings panel for a better experience.
+- Improved documentation, updated error handling suggestions, unified image references.
+- Fixed some UI responsiveness issues for smoother interaction.
+
 ### [2.0.1,2.0.2] - 2026-02-27
 
 #### Documentation Improvements
@@ -40,8 +57,7 @@ This is a **major version bump** with significant architectural changes, inspire
    - **Before (v1)**: All settings read-only, only modifiable via commands
    - **After (v2)**: Settings directly editable in `settings.json`, fully user-controlled
    - **New Config Items**:
-     ```json
-     {
+     ```json     {
        "vscodeBackground.enabled": false,
        "vscodeBackground.videos": ["file path", "https://..."],
        "vscodeBackground.opacity": 0.8,
@@ -314,6 +330,23 @@ After:  $appRoot/../../../../../../background-videos
 ---
 
 ## 简体中文
+
+### [2.0.4] - 2026-02-28
+
+#### 界面优化
+
+- 优化“管理视频/图片顺序与删除”Webview：
+  - 视觉风格现代化：渐变背景、圆角、阴影、按钮样式更精美
+  - 增加媒体列表行宽，提升可读性与美观度
+  - 拖拽排序体验和整体易用性进一步提升
+
+### [2.0.3] - 2026-02-28
+
+#### 新功能与改进
+
+- 新增“管理视频/图片顺序与删除”功能（Webview 拖拽排序），可在设置中通过可视化界面调整媒体顺序、删除或添加文件，提升用户体验。
+- 优化部分文档内容，调整错误处理建议，统一图片引用。
+- 修复部分界面响应速度，提升交互流畅性。
 
 ### [2.0.1,2.0.2] - 2026-02-27
 

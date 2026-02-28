@@ -83,6 +83,17 @@
 
 然后运行：**`VSCode Background: Install / Update`** 命令
 
+
+### 管理视频/图片顺序
+
+你可以通过命令面板运行：
+
+- **`VSCode Background: Manage Videos`**
+
+打开现代化拖拽排序界面，可视化地调整、删除或添加媒体文件。更改会保存到设置中，重新应用后生效。
+
+然后运行：**`VSCode Background: Install / Update`** 命令
+
 ### 通过命令
 
 按 `Ctrl+Shift+P` 打开命令面板：
@@ -90,6 +101,7 @@
 - **`Install / Update`** - 应用 settings.json 中的当前设置（核心命令）
 - **`Uninstall`** - 从 workbench 中移除背景（清理命令）
 - **`Add Videos`** - 打开文件选择器添加视频路径到 settings.json
+- **`Manage Videos`** - 可视化管理、排序、添加或删除视频/图片
 - **`Show Diagnostics`** - 显示调试信息
 
 ## 扩展设置

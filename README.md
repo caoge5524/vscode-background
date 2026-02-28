@@ -81,7 +81,17 @@ Open Settings (`Ctrl+,`) and search "VSCode Background":
 }
 ```
 
+
+### Managing Video/Image Order
+
+You can visually manage the order, add, or delete videos/images via the command:
+
+- **`VSCode Background: Manage Videos`**
+
+This opens a modern drag-and-drop UI for sorting, deleting, or adding media files. Changes are saved to your settings and take effect after reapplying.
+
 Then run: **`VSCode Background: Install / Update`** command
+
 
 ### Via Commands
 
@@ -90,6 +100,7 @@ Press `Ctrl+Shift+P` to open Command Palette:
 - **`Install / Update`** - Apply current settings from settings.json (core command)
 - **`Uninstall`** - Remove background from workbench (cleanup command)
 - **`Add Videos`** - Open file picker to add video paths to settings.json
+- **`Manage Videos`** - Visually manage, sort, add, or delete videos/images
 - **`Show Diagnostics`** - Display debug information
 
 ## Extension Settings

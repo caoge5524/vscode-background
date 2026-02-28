@@ -214,27 +214,130 @@ class Background {
         <meta charset="UTF-8">
         <title>管理媒体顺序</title>
         <style>
-            body { font-family: sans-serif; background: #232323; color: #eee; }
-            ul { list-style: none; padding: 0; }
-            li { padding: 8px 12px; margin: 4px 0; background: #333; border-radius: 4px; cursor: grab; display: flex; align-items: center; }
-            li.dragging { opacity: 0.5; }
-            .del { margin-left: auto; color: #f55; cursor: pointer; }
-            button { margin: 12px 8px 0 0; }
-            .drag-over-top { border-top: 2px solid #4af; }
-            .drag-over-bottom { border-bottom: 2px solid #4af; }
-            .toolbar { margin-bottom: 10px; }
+            body {
+                font-family: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', Arial, sans-serif;
+                background: linear-gradient(135deg, #232526 0%, #414345 100%);
+                color: #f3f6fa;
+                margin: 0;
+                padding: 0;
+            }
+            .container {
+                max-width: 820px;
+                min-width: 420px;
+                margin: 32px auto 0 auto;
+                background: rgba(34, 38, 46, 0.98);
+                border-radius: 18px;
+                box-shadow: 0 6px 32px 0 #0006;
+                padding: 32px 38px 24px 38px;
+                border: 1.5px solid #2e3440;
+            }
+            h3 {
+                margin-top: 0;
+                font-weight: 600;
+                font-size: 1.25rem;
+                letter-spacing: 1px;
+                color: #7ecfff;
+                text-align: center;
+            }
+            .toolbar {
+                display: flex;
+                justify-content: flex-end;
+                margin-bottom: 12px;
+            }
+            ul {
+                list-style: none;
+                padding: 0;
+                margin: 0 0 18px 0;
+            }
+            li {
+                padding: 12px 32px 12px 20px;
+                margin: 8px 0;
+                background: linear-gradient(90deg, #2c2f36 60%, #232526 100%);
+                border-radius: 10px;
+                cursor: grab;
+                display: flex;
+                align-items: center;
+                box-shadow: 0 2px 8px 0 #0002;
+                transition: box-shadow 0.18s, background 0.18s;
+                border: 1.5px solid transparent;
+                position: relative;
+                min-width: 600px;
+                font-size: 1.08rem;
+                word-break: break-all;
+            }
+            li.dragging {
+                opacity: 0.55;
+                box-shadow: 0 4px 16px 0 #0004;
+            }
+            li:hover {
+                background: linear-gradient(90deg, #31343b 60%, #232526 100%);
+                box-shadow: 0 4px 16px 0 #0004;
+                border-color: #3a8ee6;
+            }
+            .del {
+                margin-left: auto;
+                color: #ff6b81;
+                cursor: pointer;
+                font-size: 1.2em;
+                padding: 2px 8px;
+                border-radius: 6px;
+                transition: background 0.15s, color 0.15s;
+            }
+            .del:hover {
+                background: #ff6b8133;
+                color: #fff;
+            }
+            button {
+                margin: 0 8px 0 0;
+                padding: 8px 22px;
+                border-radius: 8px;
+                border: none;
+                background: linear-gradient(90deg, #3a8ee6 0%, #70c1ff 100%);
+                color: #fff;
+                font-size: 1rem;
+                font-weight: 500;
+                box-shadow: 0 2px 8px 0 #0002;
+                cursor: pointer;
+                transition: background 0.18s, box-shadow 0.18s;
+            }
+            button#cancel {
+                background: linear-gradient(90deg, #444950 0%, #232526 100%);
+                color: #bfc9d1;
+            }
+            button#addFile {
+                margin: 0 0 0 0;
+                padding: 6px 18px;
+                font-size: 0.98rem;
+                background: linear-gradient(90deg, #2d8cf0 0%, #7ed6ff 100%);
+                color: #fff;
+            }
+            button:hover {
+                filter: brightness(1.08);
+                box-shadow: 0 4px 16px 0 #0003;
+            }
+            .drag-over-top { border-top: 2.5px solid #7ecfff; }
+            .drag-over-bottom { border-bottom: 2.5px solid #7ecfff; }
+            @media (max-width: 600px) {
+                .container { padding: 12px 2vw; }
+                li { font-size: 0.98rem; }
+                button { font-size: 0.98rem; }
+            }
         </style>
     </head>
     <body>
-        <h3>拖拽排序，点击删除</h3>
-        <div class="toolbar">
-            <button id="addFile">添加文件</button>
+        <div class="container">
+            <h3>拖拽排序，点击删除</h3>
+            <div class="toolbar">
+                <button id="addFile">添加文件</button>
+            </div>
+            <ul id="list">
+                ${videos.map((v, i) => `<li draggable="true" data-idx="${i}">${v}<span class="del" title="删除">🗑️</span></li>`).join('')}
+            </ul>
+            <div style="text-align:right;">
+                <button id="save">保存</button>
+                <button id="cancel">取消</button>
+            </div>
         </div>
-        <ul id="list">
-            ${videos.map((v, i) => `<li draggable="true" data-idx="${i}">${v}<span class="del" title="删除">🗑️</span></li>`).join('')}
-        </ul>
-        <button id="save">保存</button>
-        <button id="cancel">取消</button>
         <script>
             const vscode = acquireVsCodeApi();
             let dragging = null;
