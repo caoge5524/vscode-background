@@ -8,6 +8,67 @@ All notable changes to the "vscode-background" extension will be documented in t
 
 ## English
 
+### [2.1.0] - 2026-03-02
+
+#### New Features
+
+- **Image Background Support (JPG, PNG, GIF, WebP)**
+  - The `vscodeBackground.videos` setting now accepts image files alongside videos
+  - Supported formats: `*.jpg` / `*.jpeg`, `*.png`, `*.gif` (animated), `*.webp`, `*.bmp`, `*.svg`
+  - Images and videos can be **freely mixed** in the same playlist for a slideshow effect
+  - Implemented fade transition (0.8s ease) between media items via `opacity` CSS animation
+  - A shared `div` container is used per media item — videos use `<video>` element, images use `<img>` element
+  - Detection is done by file extension or `data:image` URL prefix at runtime
+  - The file picker (`Add Media` command) now also shows image file types
+
+- **First-Run Welcome Popup**
+  - On first install, automatically shows a notification: *"VSCode Background is ready! Please configure your video/image file paths to get started."*
+  - Provides direct action buttons: **Configure Video Paths** (opens Settings UI to `vscodeBackground.videos`) and **Open File Picker**
+  - Uses `extensionContext.globalState` to track first-run, shows only once per install
+
+- **Open File Explorer Button in Settings**
+  - Added `vscode-background.openFileExplorer` command
+  - A **clickable link** is now embedded in the `vscodeBackground.videos` setting description:
+    `[Open File Explorer](command:vscode-background.openFileExplorer)`
+  - Opens the OS native file manager (Explorer on Windows, Finder on macOS, file manager on Linux)
+  - After opening, an action prompt lets users directly invoke **Add Videos** or **Open Settings**
+
+- **Background Workshop (GitHub Discussions)**
+  - Added `vscode-background.openWorkshop` command: *"VSCode Background: Open Background Workshop (GitHub Discussions)"*
+  - A **Workshop link** is embedded in the `vscodeBackground.videos` setting description for quick access
+  - Opens the GitHub Discussions page of the repository in the browser
+  - **Recommended over Issues or a separate repo**: GitHub Discussions supports categories, reactions/upvotes, threaded replies, and media uploads
+  - Added `vscodeBackground.workshopUrl` setting for customizing the workshop URL (default: `https://github.com/caoge5524/vscode-background/discussions`)
+
+#### Improvements
+
+- **Cross-Platform `addVideos` (`Add Media`) Command**
+  - Renamed internally to reflect both video and image support
+  - Removed the non-English path filter — paths in any language/script (中文, 日本語, etc.) now work correctly on all platforms
+  - File picker now shows two filter categories: `Video Files` and `Image Files`
+  - Works identically on Windows, macOS, and Linux
+
+- **Background Workshop (`openWorkshop`) Enhancement**
+  - Since `https://github.com/caoge5524/vscode-background/discussions` was returning 404 (GitHub Discussions not yet enabled), added a secondary option
+  - Command now shows a prompt with two choices: **Open Discussions** and **View Workshop Guide**
+  - Created `WORKSHOP.md` in the repository root as a standalone workshop guide with sharing templates, category descriptions, and instructions for enabling Discussions
+  - To activate the live Discussions tab: repo owner must go to `Settings → Features → Discussions` and enable it
+
+#### Removed
+
+- Removed `vscode-background.openFileExplorer` command (user can use `Add Media` picker instead)
+- Removed `config.workshopUrl` setting (URL is now hardcoded in the command for simplicity)
+- Removed non-English character path filter in the `addVideos` flow and the `manageVideos` Webview
+
+#### Architecture Notes
+
+- `patchGenerator.ts`: `generateVideoPatch` → unified media patch with `isImage()` detection; creates `<img>` for images, `<video>` for videos; uses a shared wrapper `div` with `opacity` fade transitions
+- `background.ts`: `selectVideosFallback()` now includes `['jpg','jpeg','png','gif','webp','bmp','svg']`; non-English filter removed from both `addVideos()` and `manageVideos` Webview handler
+- `background.ts`: `checkAndPrompt()` now checks `globalState.welcomeShown` before patch state checks
+- `Background` class new public methods: `openFileExplorer()`, `openWorkshop()`
+- New file: `WORKSHOP.md` — community workshop landing page
+- NLS keys added: `cmd.openFileExplorer`, `cmd.openWorkshop`, `config.workshopUrl`
+
 ### [2.0.4] - 2026-02-28
 
 #### UI Improvements
@@ -57,7 +118,8 @@ This is a **major version bump** with significant architectural changes, inspire
    - **Before (v1)**: All settings read-only, only modifiable via commands
    - **After (v2)**: Settings directly editable in `settings.json`, fully user-controlled
    - **New Config Items**:
-     ```json     {
+     ```json
+     {
        "vscodeBackground.enabled": false,
        "vscodeBackground.videos": ["file path", "https://..."],
        "vscodeBackground.opacity": 0.8,
@@ -331,6 +393,67 @@ After:  $appRoot/../../../../../../background-videos
 
 ## 简体中文
 
+### [2.1.0] - 2026-03-02
+
+#### 新功能
+
+- **图片背景支持（JPG、PNG、GIF、WebP）**
+  - `vscodeBackground.videos` 配置项现在支持除视频外的图片文件
+  - 支持格式：`*.jpg` / `*.jpeg`、`*.png`、`*.gif`（支持动态 GIF）、`*.webp`、`*.bmp`、`*.svg`
+  - 视频和图片可以**自由混合**在同一播放列表中，实现轮播背景幻灯片效果
+  - 媒体切换时通过 `opacity` CSS 动画实现 0.8s 淡入淡出过渡效果
+  - 每个媒体项使用独立容器：视频使用 `<video>` 元素，图片使用 `<img>` 元素
+  - 运行时通过文件扩展名或 `data:image` URL 前缀自动检测类型
+  - "添加媒体"命令的文件选择器现在也显示图片文件类型
+
+- **首次安装欢迎弹窗**
+  - 首次安装插件后自动弹出提示："VSCode Background 已就绪！请配置视频/图片文件地址以开始使用。"  
+  - 提供直接操作按钮：**配置视频路径**（跳转到 `vscodeBackground.videos` 设置页）和 **打开文件选择器**  
+  - 使用 `extensionContext.globalState` 记录已显示状态，每次安装只弹一次
+
+- **设置中添加"打开文件资源管理器"按钮**
+  - 新增 `vscode-background.openFileExplorer` 命令  
+  - 在 `vscodeBackground.videos` 设置说明中嵌入可点击链接：  
+    `[打开文件资源管理器](command:vscode-background.openFileExplorer)`  
+  - 跨平台打开系统原生文件管理器（Windows：Explorer，macOS：Finder，Linux：文件管理器）  
+  - 打开后显示操作提示，可直接调用**添加视频**或**打开设置**
+
+- **背景创意工坊（GitHub Discussions）**
+  - 新增 `vscode-background.openWorkshop` 命令：`VSCode Background: 打开背景创意工坊（GitHub Discussions）`  
+  - 在 `vscodeBackground.videos` 设置说明中嵌入工坊快捷链接  
+  - 在浏览器中打开仓库的 GitHub Discussions 页面  
+  - **优于 Issues 或独立仓库的原因**：GitHub Discussions 支持分类（如"🎬背景分享"）、点赞/反应、嵌套回复和媒体上传，专为社区分享设计，维护成本为零  
+  - 新增 `vscodeBackground.workshopUrl` 配置项，可自定义创意工坊 URL（默认：`https://github.com/caoge5524/vscode-background/discussions`）
+
+#### 改进
+
+- **跨平台 `addVideos`（添加媒体）命令**
+  - 从内部将命令更名以反映同时支持视频和图片
+  - **移除了非英文路径过滤器** — 包含中文、日文等任意语言字符的路径现在在所有平台上均可正常使用
+  - 文件选择器现在显示两个过滤分类：`Video Files`（视频）和 `Image Files`（图片）
+  - 在 Windows、macOS 和 Linux 上行为完全一致
+
+- **背景创意工坊（`openWorkshop`）增强**
+  - 由于 `https://github.com/caoge5524/vscode-background/discussions` 返回 404（GitHub Discussions 尚未启用），新增了备用入口
+  - 命令现在显示包含两个选项的提示：**打开 Discussions** 和 **查看工坊指南**
+  - 创建了 `WORKSHOP.md` 在仓库根目录作为独立的工坊指南，包含分享模板、分类描述和启用 Discussions 的方法
+  - 启用方式：仓库所有者前往 `Settings → Features → Discussions` 并勾选即可
+
+#### 移除
+
+- 移除了 `vscode-background.openFileExplorer` 命令（用户可用"添加媒体"选择器代替）
+- 移除了 `config.workshopUrl` 配置项（URL 现在硬编码在命令中）
+- 移除了 `addVideos` 流程和 `manageVideos` Webview 处理器中的非英文路径过滤
+
+#### 架构说明
+
+- `patchGenerator.ts`：`generateVideoPatch` → 统一媒体补丁，含 `isImage()` 检测；图片生成 `<img>`，视频生成 `<video>`；使用共享容器 `div` 并带 `opacity` 淡入淡出过渡
+- `background.ts`：`selectVideosFallback()` 新增 `['jpg','jpeg','png','gif','webp','bmp','svg']`；`addVideos()` 和 `manageVideos` Webview 处理器均移除非英文过滤
+- `background.ts`：`checkAndPrompt()` 现在在补丁状态检查前先判断 `globalState.welcomeShown`
+- `Background` 类新增公共方法：`openFileExplorer()`, `openWorkshop()`
+- 新增文件：`WORKSHOP.md` — 社区创意工坊落地页
+- NLS 新增键：`cmd.openFileExplorer`, `cmd.openWorkshop`, `config.workshopUrl`
+
 ### [2.0.4] - 2026-02-28
 
 #### 界面优化
@@ -460,7 +583,7 @@ After:  $appRoot/../../../../../../background-videos
 
 **用户需要做的**：
 1. 更新扩展
-2. 打开设置检查 `vscodeBackground.videos`
+2. 打开设置检查 `vscodeBackground.videos` 
 3. 若为空，运行"添加视频"命令
 4. 点击"应用"（或运行"安装 / 更新"命令）
 5. 接受 UAC 提示
@@ -476,17 +599,17 @@ After:  $appRoot/../../../../../../background-videos
 
 ##### 📊 对比表
 
-| 功能         | v1                          | v2                   |
-| ------------ | --------------------------- | -------------------- |
-| 视频存储     | `background-videos/` 文件夹 | `settings.json` 路径 |
-| 更新时持久化 | ❌ 被删除                    | ✅ 保留               |
-| 补丁方式     | HTML + CSS                  | 仅 JS                |
-| 设置 UI      | 只读显示                    | 完全编辑             |
-| 命令数量     | 16 个                       | 4 个                 |
-| 自动恢复     | ❌ 手动                      | ✅ 自动               |
-| 卸载清理     | ⚠️ 手动                      | ✅ 自动               |
-| 配置格式     | 隐式（代码）                | 显式（JSON）         |
-| 模块化       | 单文件                      | 6 个模块             |
+| 功能       | v1                          | v2                   |
+| ---------- | --------------------------- | -------------------- |
+| 视频存储   | `background-videos/` 文件夹 | `settings.json` 路径 |
+| 持久化更新 | ❌ 被删除                    | ✅ 保留               |
+| 补丁方式   | HTML + CSS                  | 仅 JS                |
+| 设置 UI    | 只读显示                    | 完全编辑             |
+| 命令数量   | 16 个                       | 4 个                 |
+| 自动恢复   | ❌ 手动                      | ✅ 自动               |
+| 卸载清理   | ⚠️ 手动                      | ✅ 自动               |
+| 配置格式   | 隐式（代码）                | 显式（JSON）         |
+| 模块化     | 单文件                      | 6 个模块             |
 
 ##### 🎓 相比 v1 的架构优势
 
@@ -519,7 +642,7 @@ After:  $appRoot/../../../../../../background-videos
   - 更好地区分错误类型（区分权限错误 vs 文件锁定错误）
 
 - 📋 **改进文档**：更新两份 README 文件，添加全面的故障排查部分
-  - 根本原因说明："VSCode 当前正在使用（打开）workbench 文件"
+  - 根本原因说明："VSCode 是当前正在使用（打开）workbench 文件"
   - 分步解决方案，清晰强调首先需要关闭所有窗口
   - 解释成功所需的两个条件
   - 同时添加到英文和中文文档
@@ -556,11 +679,11 @@ const isFileLocked = errorMsg.includes('file is locked') ||
 
 - 📁 **视频目录持久化**：将 `background-videos` 文件夹从 workbench 目录移到 VSCode 根目录
   - **问题**：Workbench 文件夹在每次 VSCode 更新时都会重新创建/替换，导致用户视频被删除
-  - **解决方案**：将视频存储在 VSCode 根目录（`<VSCode根>/background-videos`）
+  - **解决方案**：将视频存储在 VSCode 根目录（`<VSCodeRoot>/background-videos`）
   - **影响**：视频现在可以在 VSCode 更新、维护版本和小版本/大版本升级中保留
   - 实现：
-    - 添加 `getVSCodeRoot(appRoot)`：从 appRoot 向上查询 3 级目录找到稳定的根目录
-    - 添加 `getRelativePathToVideos()`：计算 HTML/CSS 注入需要的相对路径
+    - 添加 `getVSCodeRoot(appRoot)`: Walks up 3 directories from appRoot to find stable root
+    - 添加 `getRelativePathToVideos()`: Computes relative path for HTML/CSS injection
     - 更新所有路径引用：copyVideosToBackgroundFolder、generateApplyScript、applyVideoBackground、诊断、清理
 
 - ⚠️ **管理员确认对话框**：在执行管理员脚本前添加模态确认对话框

@@ -196,38 +196,63 @@ function getThemeCss(theme: string, opacity: number): string {
 }
 
 /**
- * 注入视频背景播放逻辑
+ * 注入视频/图片背景切换逻辑
+ * 支持 MP4/WebM/OGG 视频与 JPG/PNG/GIF/WebP 图片混合播放
  */
 function generateVideoPatch(config: PatchConfig): string {
-    const videoUrls = config.videos.map(v => normalizeVideoUrl(v));
+    const mediaUrls = config.videos.map(v => normalizeVideoUrl(v));
     const intervalMs = config.switchInterval * 1000;
 
-    // 生成精简的 JS 代码
+    const switchCode = intervalMs > 0 && mediaUrls.length > 1
+        ? `setInterval(function(){play((idx+1)%media.length);},${intervalMs});`
+        : '';
+
     return `(function(){
-var videos=${JSON.stringify(videoUrls)};
-if(!videos.length)return;
+var media=${JSON.stringify(mediaUrls)};
+if(!media.length)return;
 var idx=0;
-var v=document.createElement('video');
-v.id='vscbg-video';
-v.muted=true;
-v.autoplay=true;
-v.loop=true;
-v.setAttribute('playsinline','');
-v.style.cssText='position:fixed;inset:0;width:100vw;height:100vh;object-fit:cover;object-position:center;z-index:-100;pointer-events:none;';
+var current=null;
+var wrap=document.createElement('div');
+wrap.id='vscbg-wrap';
+wrap.style.cssText='position:fixed;inset:0;width:100vw;height:100vh;z-index:-100;pointer-events:none;overflow:hidden;';
+function isImage(u){return/\\.(jpe?g|png|gif|webp|bmp|svg)(\\?|#|$)/i.test(u)||u.startsWith('data:image');}
+function makeEl(u){
+var el;
+if(isImage(u)){
+el=document.createElement('img');
+el.src=u;
+el.style.cssText='position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center;transition:opacity 0.8s ease;opacity:0;';
+}else{
+el=document.createElement('video');
+el.src=u;
+el.muted=true;
+el.autoplay=true;
+el.loop=true;
+el.setAttribute('playsinline','');
+el.style.cssText='position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center;transition:opacity 0.8s ease;opacity:0;';
+el.load();
+el.play().catch(function(){});
+}
+return el;
+}
 function play(i){
-idx=i%videos.length;
-v.src=videos[idx];
-v.load();
-v.play().catch(function(){});
+idx=i%media.length;
+var el=makeEl(media[idx]);
+wrap.appendChild(el);
+var raf=window.requestAnimationFrame||function(fn){setTimeout(fn,16);};
+raf(function(){raf(function(){el.style.opacity='1';});});
+if(current){
+var old=current;
+setTimeout(function(){old.style.opacity='0';setTimeout(function(){if(old.parentNode)old.parentNode.removeChild(old);},850);},50);
+}
+current=el;
 }
 function init(){
-document.body.insertBefore(v,document.body.firstChild);
+document.body.insertBefore(wrap,document.body.firstChild);
 play(0);
-${intervalMs > 0 && videoUrls.length > 1
-            ? `setInterval(function(){play(idx+1);},${intervalMs});`
-            : ''}
+${switchCode}
 }
 if(document.body){init();}
 else{document.addEventListener('DOMContentLoaded',init);}
-})();`;
+})();`
 }

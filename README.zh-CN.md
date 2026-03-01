@@ -7,20 +7,39 @@
 ## 功能特性
 
 - **视频背景支持**：支持 MP4、WebM 或 OGG 格式视频作为 VSCode 背景
-- **多视频轮播**：加载多个视频，按可配置间隔自动轮换
+- **🆕 图片背景支持**：JPG、PNG、GIF（动态）、WebP 图片均可作为背景
+- **🆕 视频/图片混排轮播**：视频和图片可自由混合，带平滑淡入淡出过渡效果
+- **多媒体轮播**：加载多个视频/图片，按可配置间隔自动轮换
 - **设置直接编辑**：所有配置在 `settings.json` 中直接编辑，在 VSCode 更新间保存
-- **视频持久保留**：视频文件路径存储在设置，文件保留在原始位置（不复制）
+- **媒体持久保留**：文件路径存储在设置，文件保留在原始位置（不复制）
 - **更新后自动恢复**：检测 VSCode 更新后的缺失补丁并提示重新应用
-- **卸载自动清理**：`vscode:uninstall` 钩子在扩展卸载时自动移除补丁
-- **无限循环模式**：将 `switchInterval` 设为 0 可让视频永久循环
-- **多种主题**：Glass（玻璃 - 透明）和 Matte（磨砂 - 模糊毛玻璃）主题
-- **自定义配置**：不透明度、切换间隔、主题选择等完全可自定义
+- **卸载自动清理**：`vscode:uninstall` 钉子在扩展卸载时自动移除补丁
+- **无限循环模式**：将 `switchInterval` 设为 0 可让媒体永久循环
+- **多种主题**：玻璃、深色、霓虹、影院、极光、极简、复古主题
+- **连拉自定义**：不透明度、切换间隔、主题选择等完全可自定义
+- **首次安装欢迎弹窗**：安装后自动引导新用户配置媒体文件路径
+- **背景创意工坊**：通过 [GitHub Discussions](https://github.com/caoge5524/vscode-background/discussions) 和 [工坊指南](./WORKSHOP.md) 与社区分享和发现精美背景
 
 ## 效果示例
 
 >![效果示例](./images/效果示例.gif)
 
 ---
+
+## v2.1.0 新特性
+
+**图片背景支持 + 用户体验增强**：
+- ✅ **图片背景** — JPG、PNG、动态 GIF、WebP 现已完全支持作为背景
+- ✅ **视频/图片混排轮播** — 在 `vscodeBackground.videos` 中自由混合视频和图片，媒体切换时带淡入淡出过渡
+- ✅ **跨平台路径支持** — 移除了英文路径限制，包含中文、日文等任意 Unicode 字符的路径在 Windows、macOS、Linux 上均可正常使用
+- ✅ **首次安装欢迎弹窗** — 安装后自动引导用户配置媒体文件路径
+- ✅ **打开文件资源管理器按钮** — 快速浏览文件并复制路径到设置
+- ✅ **背景创意工坊** — [WORKSHOP.md](./WORKSHOP.md) 已建立为社区指南；通过 GitHub Discussions 分享和发现精美背景
+
+> 💡 **图片使用提示**：将 `"C:\\用户\\图片\\背景.png"` 就像视频路径一样添加到 `vscodeBackground.videos` 即可。
+
+---
+
 ## v2.0.0 新特性
 
 **重大架构重写**：
@@ -100,9 +119,10 @@
 
 - **`Install / Update`** - 应用 settings.json 中的当前设置（核心命令）
 - **`Uninstall`** - 从 workbench 中移除背景（清理命令）
-- **`Add Videos`** - 打开文件选择器添加视频路径到 settings.json
-- **`Manage Videos`** - 可视化管理、排序、添加或删除视频/图片
+- **`Add Media (视频 / 图片)`** - 打开文件选择器添加视频/图片路径到 settings.json
+- **`Manage Media`** - 可视化管理、排序、添加或删除视频/图片
 - **`Show Diagnostics`** - 显示调试信息
+- **`Open Background Workshop`** - 打开社区分享页面
 
 ## 扩展设置
 
@@ -168,7 +188,7 @@ v2 流程：选择视频 → 路径存储到 settings.json → VSCode 更新 →
 2. 运行：`VSCode Background: Uninstall`
 3. 然后卸载扩展
 
-`vscode:uninstall` 钩子会自动从 `workbench.desktop.main.js` 中移除补丁。
+`vscode:uninstall` 钉子会自动从 `workbench.desktop.main.js` 中移除补丁。
 
 ### 从 v1 升级
 

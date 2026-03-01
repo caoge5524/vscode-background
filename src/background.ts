@@ -469,7 +469,7 @@ export class Background {
             } else if (msg.type === 'cancel') {
                 panel.dispose();
             } else if (msg.type === 'addFileDialog') {
-                // 弹出文件选择器
+                // 弹出文件选择器（跨平台，支持视频和图片）
                 let files: string[] | undefined = await this.selectVideosFallback();
                 if (files && files.length) {
                     // 过滤掉包含非英文字符的路径，提示用户手动添加
@@ -495,6 +495,22 @@ export class Background {
 
         // 修复之前版本可能被 Copy-Item 破坏的文件权限
         this.repairFilePermissions();
+
+        // 首次安装欢迎提示
+        const hasShownWelcome = this.context.globalState.get<boolean>('welcomeShown', false);
+        if (!hasShownWelcome) {
+            await this.context.globalState.update('welcomeShown', true);
+            const action = await vscode.window.showInformationMessage(
+                'VSCode Background 已就绪！请配置视频/图片文件地址以开始使用。',
+                '配置视频路径', '打开文件选择器', '稍后'
+            );
+            if (action === '配置视频路径') {
+                vscode.commands.executeCommand('workbench.action.openSettings', 'vscodeBackground.videos');
+            } else if (action === '打开文件选择器') {
+                await this.addVideos();
+            }
+            return;
+        }
 
         const jsPath = this.getJsPath();
         if (!jsPath) {
@@ -554,10 +570,10 @@ export class Background {
 
         if (config.videos.length === 0) {
             const action = await vscode.window.showWarningMessage(
-                '未配置视频文件。请先在 settings.json 的 "vscodeBackground.videos" 中添加视频路径，或使用"添加视频"命令。',
-                '添加视频', '编辑 settings.json', '打开设置', '取消'
+                '未配置媒体文件（视频/图片）。请先在 settings.json 的 "vscodeBackground.videos" 中添加文件路径，或使用"添加视频"命令。',
+                '添加媒体', '编辑 settings.json', '打开设置', '取消'
             );
-            if (action === '添加视频') {
+            if (action === '添加媒体') {
                 await this.addVideos();
             } else if (action === '编辑 settings.json') {
                 await vscode.commands.executeCommand('workbench.action.openSettingsJson');
@@ -573,7 +589,7 @@ export class Background {
         );
         if (missingFiles.length > 0) {
             const action = await vscode.window.showWarningMessage(
-                `以下 ${missingFiles.length} 个视频文件不存在:\n${missingFiles.map(f => path.basename(f)).join(', ')}\n\n是否仍然继续？`,
+                `以下 ${missingFiles.length} 个媒体文件不存在:\n${missingFiles.map(f => path.basename(f)).join(', ')}\n\n是否仍然继续？`,
                 '继续', '编辑 settings.json', '取消'
             );
             if (action === '编辑 settings.json') {
@@ -609,7 +625,7 @@ export class Background {
             this.isUpdatingConfig = false;
 
             const action = await vscode.window.showInformationMessage(
-                '✅ 视频背景已应用！请重启 VSCode 以查看效果。',
+                '✅ 背景已应用！请重启 VSCode 以查看效果。',
                 '立即重启'
             );
             if (action === '立即重启') {
@@ -665,9 +681,8 @@ export class Background {
         }
     }
 
-    /** 通过文件选择器添加视频 */
+    /** 通过文件选择器添加视频或图片（跨平台，支持所有操作系统） */
     async addVideos(): Promise<void> {
-        // 只使用VSCode文件选择对话框
         const selectedFiles = await this.selectVideosFallback();
         if (!selectedFiles || selectedFiles.length === 0) { return; }
 
@@ -695,7 +710,7 @@ export class Background {
 
         const names = selectedFiles.map(f => path.basename(f)).join(', ');
         const action = await vscode.window.showInformationMessage(
-            `已添加 ${selectedFiles.length} 个视频: ${names}`,
+            `已添加 ${selectedFiles.length} 个媒体文件: ${names}`,
             '立即应用', '编辑 settings.json', '稍后'
         );
         if (action === '立即应用') {
@@ -908,37 +923,15 @@ export class Background {
         });
     }
 
-    /** Windows 原生文件选择对话框 */
-    private selectVideosWindows(): Promise<string[] | undefined> {
-        return new Promise((resolve) => {
-            const psScript = [
-                'Add-Type -AssemblyName System.Windows.Forms',
-                '$d = New-Object System.Windows.Forms.OpenFileDialog',
-                "$d.Filter = 'Video Files (*.mp4;*.webm;*.ogg)|*.mp4;*.webm;*.ogg|All Files (*.*)|*.*'",
-                '$d.Multiselect = $true',
-                "$d.Title = 'Select Video Files'",
-                "if ($d.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) { $d.FileNames -join '|' }",
-            ].join('; ');
-
-            exec(`powershell -NoProfile -Command "${psScript.replace(/"/g, '\\"')}"`, (error, stdout) => {
-                if (error || !stdout.trim()) {
-                    resolve(undefined);
-                    return;
-                }
-                const files = stdout.trim().split('|').filter(f => f.length > 0);
-                resolve(files.length > 0 ? files : undefined);
-            });
-        });
-    }
-
-    /** VSCode 文件选择对话框（跨平台后备方案） */
+    /** VSCode 文件选择对话框（跨平台，支持视频与图片） */
     private async selectVideosFallback(): Promise<string[] | undefined> {
         const uris = await vscode.window.showOpenDialog({
             canSelectMany: true,
-            openLabel: '选择视频文件',
+            openLabel: '选择视频/图片文件',
             filters: {
-                'Video Files': ['mp4', 'webm', 'ogg'],
-                'All Files': ['*']
+                '所有文件': ['mp4', 'webm', 'ogg', 'mkv', 'mov', 'avi', 'jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg'],
+                '视频文件': ['mp4', 'webm', 'ogg', 'mkv', 'mov', 'avi'],
+                '图片文件': ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg']
             }
         });
         return uris?.map(u => u.fsPath);
@@ -1020,5 +1013,20 @@ export class Background {
     private removeTouchFile(): void {
         const touchPath = path.join(this.context.extensionPath, TOUCH_FILE_NAME);
         try { fs.unlinkSync(touchPath); } catch { /* ignore */ }
+    }
+
+    /** 打开背景创意工坊（GitHub Discussions 社区分享） */
+    async openWorkshop(): Promise<void> {
+        const discussionsUrl = 'https://github.com/caoge5524/vscode-background/discussions';
+        const workshopFileUrl = 'https://github.com/caoge5524/vscode-background/blob/main/WORKSHOP.md';
+        const action = await vscode.window.showInformationMessage(
+            '背景创意工坊：与社区一起分享和发现精美背景！',
+            '打开 Discussions', '查看工坊指南'
+        );
+        if (action === '打开 Discussions') {
+            await vscode.env.openExternal(vscode.Uri.parse(discussionsUrl));
+        } else if (action === '查看工坊指南') {
+            await vscode.env.openExternal(vscode.Uri.parse(workshopFileUrl));
+        }
     }
 }

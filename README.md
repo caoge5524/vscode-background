@@ -7,20 +7,39 @@ English | [简体中文](./README.zh-CN.md)
 ## Features
 
 - **Video Background Support**: MP4, WebM, or OGG videos as your VSCode background
-- **Multiple Videos**: Load multiple videos with automatic rotation at configurable intervals
+- **🆕 Image Background Support**: JPG, PNG, GIF (animated), WebP images as backgrounds
+- **Mixed Media Slideshow**: Videos and images can be freely mixed in the same playlist with smooth fade transitions
+- **Multiple Media**: Load multiple videos/images with automatic rotation at configurable intervals
 - **Settings.json Editable**: All configuration directly in `settings.json`, survives VSCode updates
-- **Persistent Videos**: Video file paths stored in settings, files remain in original locations (not copied)
+- **Persistent Media**: File paths stored in settings, files remain in original locations (not copied)
 - **Auto-Recovery After Updates**: Detects missing patches after VSCode updates and prompts to reapply
 - **Auto-Cleanup on Uninstall**: `vscode:uninstall` hook automatically removes patch when extension is uninstalled
-- **Infinite Loop Mode**: Set `switchInterval` to 0 to loop a single video forever
-- **Multiple Themes**: Glass (transparent) and Matte (frosted glass with blur) themes
+- **Infinite Loop Mode**: Set `switchInterval` to 0 to loop a single media forever
+- **Multiple Themes**: Glass, Matte, Neon, Cinema, Aurora, Minimal, Retro themes
 - **Customizable Settings**: Opacity, switch interval, theme selection
+- **First-Run Welcome**: Automatically guides new users to configure media paths on first install
+- **Background Workshop**: Community sharing via [GitHub Discussions](https://github.com/caoge5524/vscode-background/discussions) / [Workshop Guide](./WORKSHOP.md)
 
 ## Demo
 
 >![Demo](./images/效果示例.gif)
 
 ---
+
+## What's New in v2.1.0
+
+**Image Background Support + UX Enhancements**:
+- ✅ **Image backgrounds** — JPG, PNG, animated GIF, WebP now fully supported as backgrounds
+- ✅ **Mixed media slideshow** — freely mix videos and images in `vscodeBackground.videos`; smooth fade transitions between each item
+- ✅ **Cross-platform path support** — removed the English-only path restriction; Chinese, Japanese, and all Unicode paths now work on Windows, macOS, and Linux
+- ✅ **First-Run Welcome Popup** — on first install, automatically guides you to configure media paths
+- ✅ **Open File Explorer Button** — quick link to browse files and copy paths to settings
+- ✅ **Background Workshop** — [WORKSHOP.md](./WORKSHOP.md) created as community guide; share and discover backgrounds via GitHub Discussions
+
+> 💡 **Image tip**: Add `"C:\\Photos\\bg.jpg"` (or `"/home/user/bg.png"`) to `vscodeBackground.videos` just like a video path.
+
+---
+
 ## What's New in v2.0.0
 
 **Major Architecture Rewrite**:
@@ -99,19 +118,20 @@ Press `Ctrl+Shift+P` to open Command Palette:
 
 - **`Install / Update`** - Apply current settings from settings.json (core command)
 - **`Uninstall`** - Remove background from workbench (cleanup command)
-- **`Add Videos`** - Open file picker to add video paths to settings.json
-- **`Manage Videos`** - Visually manage, sort, add, or delete videos/images
+- **`Add Media (Videos / Images)`** - Open file picker to add video/image paths to settings.json
+- **`Manage Media`** - Visually manage, sort, add, or delete videos/images
 - **`Show Diagnostics`** - Display debug information
+- **`Open Background Workshop`** - Open community sharing page
 
 ## Extension Settings
 
 | Setting                           | Type    | Default | Description                                        |
 | --------------------------------- | ------- | ------- | -------------------------------------------------- |
 | `vscodeBackground.enabled`        | boolean | false   | Enable/disable background                          |
-| `vscodeBackground.videos`         | array   | []      | **Video file paths** (local or URL)                |
+| `vscodeBackground.videos`         | array   | []      | **Media file paths** (videos, images, or URLs)     |
 | `vscodeBackground.opacity`        | number  | 0.8     | Background opacity (0-1)                           |
 | `vscodeBackground.switchInterval` | number  | 180     | Switch interval in **seconds** (0 = infinite loop) |
-| `vscodeBackground.theme`          | string  | "glass" | Theme: "glass" or "matte"                          |
+| `vscodeBackground.theme`          | string  | "glass" | Theme: "glass", "matte", "neon", "cinema", etc.    |
 
 ### Video Path Formats
 
@@ -119,15 +139,21 @@ All formats are supported and automatically converted:
 
 ```json
 "vscodeBackground.videos": [
-  "C:\\Users\\You\\Videos\\bg.mp4",          // Windows absolute path
-  "/home/user/videos/bg.mp4",                // Linux/Mac absolute path
+  "C:\\Users\\You\\Videos\\bg.mp4",          // Windows video
+  "/home/user/photos/bg.jpg",                // Linux/Mac image
+  "C:\\用户\\图片\\背景.png",                   // Unicode paths fully supported
   "file:///C:/Videos/video.mp4",             // file:// URL
   "https://example.com/background.mp4",      // HTTPS URL
   "data:video/mp4;base64,..."                // Base64-encoded video
 ]
 ```
 
-**Important**: Video files are **NOT copied anywhere**. Paths point to original locations. Files persist across VSCode updates.
+**Supported formats**:
+- **Video**: MP4, WebM, OGG
+- **Image**: JPG/JPEG, PNG, GIF (animated), WebP, BMP, SVG
+- Videos and images can be **freely mixed** — they will fade-transition between each other
+
+**Important**: Files are **NOT copied anywhere**. Paths point to original locations.
 
 ## Commands
 
