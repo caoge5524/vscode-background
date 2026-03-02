@@ -1,6 +1,6 @@
 {
   "ext.displayName": "VSCode 视频/图片背景",
-  "ext.description": "为 VSCode 设置视频/图片背景（MP4、WebM、OGG、JPG、PNG、GIF）",
+  "ext.description": "为 VSCode 设置视频/图片背景（MP4、WebM、OGG、JPG、PNG、GIF...）",
   "cmd.install": "VSCode Background: 安装 / 更新背景",
   "cmd.uninstall": "VSCode Background: 卸载背景",
   "cmd.addVideos": "VSCode Background: 添加媒体（视频 / 图片）",
@@ -10,7 +10,8 @@
   "config.title": "VSCode 背景",
   "config.enabled": "启用/禁用背景。\n\n更改后请运行 **安装/更新** 命令以应用。",
   "config.videos": "媒体文件路径（视频和图片）。支持：\n- **视频**：`*.mp4`、`*.webm`、`*.ogg`\n- **图片**：`*.jpg`、`*.png`、`*.gif`、`*.webp`\n- 本地绝对路径：`C:\\\\Videos\\\\bg.mp4` 或 `/home/user/photos/bg.jpg`\n- `file:///` 地址\n- `https://` 地址\n\n**文件保留在原位**，不会受 VSCode 更新影响。\n视频和图片可以自由混排，实现轮播轮播背景幻灯片效果。\n\n[添加媒体](command:vscode-background.addVideos) | [背景创意工坊](command:vscode-background.openWorkshop)",
-  "config.workshopUrl": "背景创意工坊：用于分享和发现背景的 GitHub Discussions 链接。\n\n[$(account) 打开创意工坊](command:vscode-background.openWorkshop)",
+  "config.workshopUrl": "背景创意工坊：用于分享和发现背景的 GitHub Discussions 链接。\n\n[打开创意工坊](command:vscode-background.openWorkshop)",
+  "config.transitions": "每个媒体位置的切换特效。数组长度应为 `videos.length`，含最后一项回到第一项的回环槽（`transitions[i]` = 离开 `media[i]` 时的特效）。\n\n| 值 | 效果 |\n|---|---|\n| `zoom` *（默认）* | 缩放淡化 |\n| `fade` | 淡入淡出 |\n| `slide-left` | 从右侧滑入 |\n| `slide-right` | 从左侧滑入 |\n| `wipe-up` | 从底部上滑 |\n| `wipe-down` | 从顶部下滑 |\n| `spiral` | 螺旋弹入 |\n| `flip` | 3D 水平翻转 |\n| `blur` | 模糊淡入 |\n| `instant` | 无动画瞬切 |\n\n**提示：** 使用 **[管理媒体](command:vscode-background.manageVideos)** 可视化编辑，末尾文件下方含回环行（↩）。\n\n缺少的条目自动补 `zoom`。",
   "config.opacity": "工作台不透明度（0 = 完全透明，1 = 完全不透明）。\n\n**提示：** 推荐 0.7~0.9 获得最佳体验。",
   "config.switchInterval": "媒体切换间隔（秒）。\n\n设为 `0` 可循环播放当前媒体。\n\n建议最小值：10 秒。",
   "config.theme": "背景主题风格",

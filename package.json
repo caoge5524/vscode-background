@@ -2,7 +2,7 @@
   "name": "vscode-background",
   "displayName": "%ext.displayName%",
   "description": "%ext.description%",
-  "version": "2.1.0",
+  "version": "2.2.0",
   "publisher": "caoge",
   "author": {
     "name": "操歌"
@@ -85,12 +85,35 @@
           "markdownDescription": "%config.videos%",
           "order": 2
         },
+        "vscodeBackground.transitions": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "zoom",
+              "fade",
+              "slide-left",
+              "slide-right",
+              "wipe-up",
+              "wipe-down",
+              "spiral",
+              "flip",
+              "blur",
+              "instant"
+            ],
+            "default": "zoom"
+          },
+          "default": [],
+          "scope": "application",
+          "markdownDescription": "%config.transitions%",
+          "order": 3
+        },
         "vscodeBackground.workshopUrl": {
           "type": "string",
           "default": "https://github.com/caoge5524/vscode-background/discussions",
           "scope": "application",
           "markdownDescription": "%config.workshopUrl%",
-          "order": 6
+          "order": 7
         },
         "vscodeBackground.opacity": {
           "type": "number",
@@ -99,7 +122,7 @@
           "maximum": 1,
           "scope": "application",
           "markdownDescription": "%config.opacity%",
-          "order": 3
+          "order": 4
         },
         "vscodeBackground.switchInterval": {
           "type": "number",
@@ -107,7 +130,7 @@
           "minimum": 0,
           "scope": "application",
           "markdownDescription": "%config.switchInterval%",
-          "order": 4
+          "order": 5
         },
         "vscodeBackground.theme": {
           "type": "string",
@@ -132,7 +155,7 @@
           ],
           "scope": "application",
           "markdownDescription": "%config.theme%",
-          "order": 5
+          "order": 6
         }
       }
     }

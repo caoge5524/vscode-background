@@ -8,6 +8,56 @@ All notable changes to the "vscode-background" extension will be documented in t
 
 ## English
 
+### [2.2.0] - 2026-03-02
+
+#### New Features
+
+- **10-Type Per-Slot Transition System (Restructured)**
+  - `generateVideoPatch` restructured to match `getThemeCss` architecture:
+    - New `TransitionDef` interface: `{d, oi, ti, fi, of, tf, ff, xo, xt, xf, rm}` (adds `filter` fields)
+    - New `getTransitionDef(name)` function: per-effect switch statement, mirrors `getThemeCss`
+    - New `buildTDTableJs()` helper: serializes all known effects to JS object literal
+    - `generateVideoPatch()` now calls these helpers; the injected `makeEl` and `play` functions now also apply `filter` CSS transitions
+  - **10 transition types** (was 5):
+    - `zoom` *(default)*: scale + fade — 1s ease
+    - `fade`: crossfade only — 1s ease
+    - `slide-left`: enter from right — 0.6s ease
+    - `slide-right`: enter from left — 0.6s ease
+    - `wipe-up` *(new)*: enter from bottom — 0.6s ease
+    - `wipe-down` *(new)*: enter from top — 0.6s ease
+    - `spiral` *(new)*: rotate + scale spring (cubic-bezier overshoot) — 0.9s
+    - `flip` *(new)*: 3D horizontal flip via `perspective(1200px) rotateY` — 0.5s
+    - `blur` *(new)*: blur-fade (`filter:blur`) — 0.8s
+    - `instant`: zero-animation cut
+
+- **Wrap-Around Transition (Last → First)**
+  - `transitions` array length is now `videos.length` (was `videos.length - 1`)
+  - `transitions[n-1]` is the effect when the last media loops back to the first
+  - `play(i)` uses `slot = idx` (current position) as the key into `transitions[]`; backward compatible — old arrays with `n-1` entries fall back to `zoom` on wrap
+
+- **Visual Wrap-Around Row in Manage Media**
+  - The bottom of the file list now shows a `↩ 末尾→首帧：` transition row after the last file
+  - `normalize()` now pads to `files.length` (not `files.length - 1`)
+  - TRANS dropdown includes all 10 effect options
+  - Delete: removes `transitions[idx]` (the slot for the deleted file)
+  - Add: always `transitions.unshift('zoom')` regardless of array length
+
+#### Improvements
+
+- **Full Image Format Documentation**
+  - BMP and SVG were already supported since v2.1.0 via `isImage()` regex but were undocumented
+  - Both README files now list all 6 image formats: JPG/JPEG, PNG, GIF (animated), WebP, BMP, SVG
+  - "Supported Video Formats" section renamed to **"Supported Media Formats"** in both READMEs
+
+#### Technical Notes
+
+- `patchGenerator.ts`: `TransitionDef` interface; `getTransitionDef()` switch (10 cases); `buildTDTableJs()` serializer; `makeEl` adds `filter` to CSS transition; `play()` uses `slot=idx` before updating `idx`
+- `background.ts`: `manageVideos` normalize target changed to `videos.length`; delete uses `splice(idx,1)`; add always unshifts transition; wrap-around row rendered after last file
+- `package.json`: `vscodeBackground.transitions` enum expanded to 10 values
+- NLS: descriptions updated with Markdown table listing all 10 effects and wrap-around note
+
+---
+
 ### [2.1.0] - 2026-03-02
 
 #### New Features
@@ -392,6 +442,55 @@ After:  $appRoot/../../../../../../background-videos
 ---
 
 ## 简体中文
+
+### [2.2.0] - 2026-03-02
+
+#### 新功能
+
+- **10 种切换特效 + 系统架构重构**
+  - `generateVideoPatch` 改为与 `getThemeCss` 相同的分层结构：
+    - 新增 `TransitionDef` 接口：`{d, oi, ti, fi, of, tf, ff, xo, xt, xf, rm}`（新增 `filter` 字段）
+    - 新增 `getTransitionDef(name)` 函数：switch 语句按特效名分支，类比 `getThemeCss`
+    - 新增 `buildTDTableJs()` 辅助函数：将所有特效序列化为 JS 对象字面量
+    - 注入的 `makeEl` 和 `play` 函数现在也对 `filter` 属性做 CSS 过渡
+  - **支持 10 种切换特效**（原 5 种）：
+    - `zoom` *（默认）*：缩放淡化 — 1s ease
+    - `fade`：淡入淡出 — 1s ease
+    - `slide-left`：从右侧滑入 — 0.6s ease
+    - `slide-right`：从左侧滑入 — 0.6s ease
+    - `wipe-up` *（新）*：从底部向上滑入 — 0.6s ease
+    - `wipe-down` *（新）*：从顶部向下滑入 — 0.6s ease
+    - `spiral` *（新）*：螺旋弹入（旋转 + 缩放弹跳） — 0.9s cubic-bezier
+    - `flip` *（新）*：3D 水平翻转（`perspective rotateY`） — 0.5s ease-in-out
+    - `blur` *（新）*：模糊淡入（`filter:blur`） — 0.8s ease
+    - `instant`：无动画瞬切
+
+- **末尾→首帧回环切换特效**
+  - `transitions` 数组长度从 `videos.length - 1` 改为 `videos.length`
+  - `transitions[n-1]` 为最后一个媒体循环回到第一个时的切换特效
+  - `play(i)` 以 `slot = idx`（切换前的当前索引）查找 `transitions[]`；向后兼容——旧的 `n-1` 长度数组在回环时自动回退到 `zoom`
+
+- **管理媒体 Webview 末尾回环行**
+  - 文件列表末尾添加 `↩ 末尾→首帧：` 切换特效选择行
+  - `normalize()` 现在补全到 `files.length` 长度
+  - 下拉框涵盖全部 10 种特效
+  - 删除操作：移除 `transitions[idx]`（被删文件的出行槽位）
+  - 添加操作：无论数组长度均执行 `transitions.unshift('zoom')`
+
+#### 改进
+
+- **完整图片格式文档**
+  - BMP 和 SVG 自 v2.1.0 起已支持但未正式记录；两个 README 现已完整列出全部 6 种图片格式
+  - "支持的视频格式"章节更名为**"支持的媒体格式"**
+
+#### 技术说明
+
+- `patchGenerator.ts`：`TransitionDef` 接口；`getTransitionDef()` switch（10 分支）；`buildTDTableJs()` 序列化器；`makeEl` 新增 filter CSS 过渡；`play()` 以 `slot=idx` 在修改 `idx` 前确定切换特效
+- `background.ts`：`manageVideos` normalize 目标改为 `videos.length`；delete 改用 `splice(idx,1)`；add 始终 unshift；末尾回环行渲染在最后一个文件之后
+- `package.json`：`vscodeBackground.transitions` enum 扩展至 10 种值
+- NLS：描述更新为 Markdown 表格，列出全部 10 种特效及回环说明
+
+---
 
 ### [2.1.0] - 2026-03-02
 

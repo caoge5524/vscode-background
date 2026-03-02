@@ -197,7 +197,7 @@ class Background {
         }
     }
     // ========== 公共 API ==========
-    /** 管理视频/图片顺序与删除（Webview 拖拽排序） */
+    /** 管理视频/图片顺序与删除（Webview 拖拽排序 + 切换特效选择） */
     async manageVideos() {
         const config = vscode.workspace.getConfiguration('vscodeBackground');
         let videos = config.get('videos', []);
@@ -205,300 +205,242 @@ class Background {
             vscode.window.showInformationMessage('当前未配置任何视频或图片。');
             return;
         }
-        const panel = vscode.window.createWebviewPanel('vscodeBackgroundManageVideos', '管理媒体顺序', vscode.ViewColumn.Active, { enableScripts: true });
-        // 生成 HTML
+        // 加载并规范化 transitions（长度 = videos.length，含末尾→首帧回环槽）
+        let savedTransitions = config.get('transitions', []);
+        const needed = videos.length;
+        while (savedTransitions.length < needed) {
+            savedTransitions.push('zoom');
+        }
+        savedTransitions = savedTransitions.slice(0, needed);
+        const panel = vscode.window.createWebviewPanel('vscodeBackgroundManageVideos', '管理媒体与切换特效', vscode.ViewColumn.Active, { enableScripts: true });
+        const initFiles = JSON.stringify(videos);
+        const initTrans = JSON.stringify(savedTransitions);
         panel.webview.html = `
-    <!DOCTYPE html>
-    <html lang="zh-CN">
-    <head>
-        <meta charset="UTF-8">
-        <title>管理媒体顺序</title>
-        <style>
-            body {
-                font-family: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', Arial, sans-serif;
-                background: linear-gradient(135deg, #232526 0%, #414345 100%);
-                color: #f3f6fa;
-                margin: 0;
-                padding: 0;
-            }
-            .container {
-                max-width: 820px;
-                min-width: 420px;
-                margin: 32px auto 0 auto;
-                background: rgba(34, 38, 46, 0.98);
-                border-radius: 18px;
-                box-shadow: 0 6px 32px 0 #0006;
-                padding: 32px 38px 24px 38px;
-                border: 1.5px solid #2e3440;
-            }
-            h3 {
-                margin-top: 0;
-                font-weight: 600;
-                font-size: 1.25rem;
-                letter-spacing: 1px;
-                color: #7ecfff;
-                text-align: center;
-            }
-            .toolbar {
-                display: flex;
-                justify-content: flex-end;
-                margin-bottom: 12px;
-            }
-            ul {
-                list-style: none;
-                padding: 0;
-                margin: 0 0 18px 0;
-            }
-            li {
-                padding: 12px 32px 12px 20px;
-                margin: 8px 0;
-                background: linear-gradient(90deg, #2c2f36 60%, #232526 100%);
-                border-radius: 10px;
-                cursor: grab;
-                display: flex;
-                align-items: center;
-                box-shadow: 0 2px 8px 0 #0002;
-                transition: box-shadow 0.18s, background 0.18s;
-                border: 1.5px solid transparent;
-                position: relative;
-                min-width: 600px;
-                font-size: 1.08rem;
-                word-break: break-all;
-            }
-            li.dragging {
-                opacity: 0.55;
-                box-shadow: 0 4px 16px 0 #0004;
-            }
-            li:hover {
-                background: linear-gradient(90deg, #31343b 60%, #232526 100%);
-                box-shadow: 0 4px 16px 0 #0004;
-                border-color: #3a8ee6;
-            }
-            .del {
-                margin-left: auto;
-                color: #ff6b81;
-                cursor: pointer;
-                font-size: 1.2em;
-                padding: 2px 8px;
-                border-radius: 6px;
-                transition: background 0.15s, color 0.15s;
-            }
-            .del:hover {
-                background: #ff6b8133;
-                color: #fff;
-            }
-            button {
-                margin: 0 8px 0 0;
-                padding: 8px 22px;
-                border-radius: 8px;
-                border: none;
-                background: linear-gradient(90deg, #3a8ee6 0%, #70c1ff 100%);
-                color: #fff;
-                font-size: 1rem;
-                font-weight: 500;
-                box-shadow: 0 2px 8px 0 #0002;
-                cursor: pointer;
-                transition: background 0.18s, box-shadow 0.18s;
-            }
-            button#cancel {
-                background: linear-gradient(90deg, #444950 0%, #232526 100%);
-                color: #bfc9d1;
-            }
-            button#addFile {
-                margin: 0 0 0 0;
-                padding: 6px 18px;
-                font-size: 0.98rem;
-                background: linear-gradient(90deg, #2d8cf0 0%, #7ed6ff 100%);
-                color: #fff;
-            }
-            button:hover {
-                filter: brightness(1.08);
-                box-shadow: 0 4px 16px 0 #0003;
-            }
-            .drag-over-top { border-top: 2.5px solid #7ecfff; }
-            .drag-over-bottom { border-bottom: 2.5px solid #7ecfff; }
-            @media (max-width: 600px) {
-                .container { padding: 12px 2vw; }
-                li { font-size: 0.98rem; }
-                button { font-size: 0.98rem; }
-            }
-        </style>
-    </head>
-    <body>
-        <div class="container">
-            <h3>拖拽排序，点击删除</h3>
-            <div class="toolbar">
-                <button id="addFile">添加文件</button>
-            </div>
-            <ul id="list">
-                ${videos.map((v, i) => `<li draggable="true" data-idx="${i}">${v}<span class="del" title="删除">🗑️</span></li>`).join('')}
-            </ul>
-            <div style="text-align:right;">
+            <!DOCTYPE html>
+            <html lang="zh-CN">
+            <head>
+            <meta charset="UTF-8">
+            <title>管理媒体</title>
+            <style>
+            body{font-family:'Segoe UI','PingFang SC','Microsoft YaHei',Arial,sans-serif;background:linear-gradient(135deg,#232526 0%,#414345 100%);color:#f3f6fa;margin:0;padding:0;}
+            .container{max-width:860px;min-width:440px;margin:28px auto 0 auto;background:rgba(34,38,46,0.98);border-radius:18px;box-shadow:0 6px 32px 0 #0006;padding:28px 36px 22px 36px;border:1.5px solid #2e3440;}
+            h3{margin-top:0;font-weight:600;font-size:1.22rem;letter-spacing:1px;color:#7ecfff;text-align:center;}
+            .subtitle{font-size:0.83rem;color:#7a9ec5;text-align:center;margin:-6px 0 14px 0;}
+            .toolbar{display:flex;justify-content:flex-end;margin-bottom:10px;}
+            #itemList{margin-bottom:16px;}
+            .file-item{display:flex;align-items:center;padding:10px 14px 10px 12px;margin:0;background:linear-gradient(90deg,#2c2f36 60%,#232526 100%);border-radius:10px;cursor:grab;border:1.5px solid transparent;min-width:580px;font-size:1rem;word-break:break-all;transition:box-shadow 0.15s,border-color 0.15s;box-shadow:0 2px 8px 0 #0002;}
+            .file-item:hover{border-color:#3a8ee6;box-shadow:0 4px 14px 0 #0004;}
+            .file-item.dragging{opacity:0.45;box-shadow:0 4px 16px 0 #0004;}
+            .file-item.drop-above{border-top:2.5px solid #7ecfff;}
+            .file-item.drop-below{border-bottom:2.5px solid #7ecfff;}
+            .grip{color:#4a5568;cursor:grab;margin-right:10px;font-size:1.1rem;user-select:none;line-height:1;}
+            .file-name{flex:1;word-break:break-all;font-size:0.97rem;}
+            .del{margin-left:10px;color:#ff6b81;cursor:pointer;font-size:1.1em;padding:2px 7px;border-radius:6px;transition:background 0.15s,color 0.15s;flex-shrink:0;}
+            .del:hover{background:#ff6b8133;color:#fff;}
+            .trans-row{display:flex;align-items:center;padding:4px 14px 4px 44px;margin:0;background:rgba(32,44,58,0.6);border-left:2px solid #1e4d7a;border-right:2px solid #1e4d7a;min-width:580px;}
+            .trans-label{color:#5d85aa;font-size:0.8rem;margin-right:10px;white-space:nowrap;user-select:none;}
+            .trans-select{background:#18202c;color:#a8c4dc;border:1px solid #2d5a8e;border-radius:5px;padding:3px 10px;font-size:0.82rem;cursor:pointer;outline:none;}
+            .trans-select:hover{border-color:#4a8ec2;}
+            button{margin:0 8px 0 0;padding:7px 20px;border-radius:8px;border:none;background:linear-gradient(90deg,#3a8ee6 0%,#70c1ff 100%);color:#fff;font-size:.98rem;font-weight:500;box-shadow:0 2px 8px 0 #0002;cursor:pointer;transition:background 0.15s,box-shadow 0.15s;}
+            button#cancel{background:linear-gradient(90deg,#444950 0%,#232526 100%);color:#bfc9d1;}
+            button#addFile{margin:0;padding:6px 16px;font-size:.92rem;}
+            button:hover{filter:brightness(1.08);box-shadow:0 4px 14px 0 #0003;}
+            </style>
+            </head>
+            <body>
+            <div class="container">
+            <h3>管理媒体与切换特效</h3>
+            <p class="subtitle">拖拽调整文件顺序 · 切换特效与位置绑定 · ↩ 末尾→首帧回环槽在末尾显示</p>
+            <div class="toolbar"><button id="addFile">+ 添加文件</button></div>
+            <div id="itemList"></div>
+            <div style="text-align:right;margin-top:14px;">
                 <button id="save">保存</button>
                 <button id="cancel">取消</button>
             </div>
-        </div>
-        <script>
+            </div>
+            <script>
             const vscode = acquireVsCodeApi();
-            let dragging = null;
-            let dragIdx = null;
-            const list = document.getElementById('list');
-            function clearDragOver() {
-                document.querySelectorAll('li').forEach(li => {
-                    li.classList.remove('drag-over-top', 'drag-over-bottom');
-                });
+            var files = ${initFiles};
+            var transitions = ${initTrans};
+
+            const TRANS = [
+            {v:'zoom',        l:'🔍 缩放淡化（默认）'},
+            {v:'fade',        l:'✨ 淡入淡出'},
+            {v:'slide-left',  l:'⬅ 向左滑入'},
+            {v:'slide-right', l:'➡ 向右滑入'},
+            {v:'wipe-up',     l:'⬆ 从下向上滑入'},
+            {v:'wipe-down',   l:'⬇ 从上向下滑入'},
+            {v:'spiral',      l:'🌀 螺旋弹入'},
+            {v:'flip',        l:'🔄 3D 翻转'},
+            {v:'blur',        l:'🌫 模糊淡入'},
+            {v:'instant',     l:'⚡ 瞬间切换'},
+            ];
+
+            function normalize() {
+            const n = files.length;
+            while (transitions.length < n) transitions.push('zoom');
+            transitions.length = n;
             }
-            document.querySelectorAll('li').forEach(li => {
-                li.addEventListener('dragstart', e => {
-                    dragging = li;
-                    dragIdx = +li.dataset.idx;
-                    li.classList.add('dragging');
+
+            function render() {
+            normalize();
+            const list = document.getElementById('itemList');
+            list.innerHTML = '';
+            files.forEach(function(file, i) {
+                // ── 文件行 ──
+                const row = document.createElement('div');
+                row.className = 'file-item';
+                row.draggable = true;
+                row.dataset.idx = String(i);
+
+                const grip = document.createElement('span');
+                grip.className = 'grip';
+                grip.textContent = '⠿';
+                grip.title = '拖拽排序';
+
+                const name = document.createElement('span');
+                name.className = 'file-name';
+                name.textContent = file;
+                name.title = file;
+
+                const del = document.createElement('span');
+                del.className = 'del';
+                del.textContent = '🗑️';
+                del.title = '删除';
+                del.addEventListener('click', function(e) {
+                e.stopPropagation();
+                const idx = parseInt(row.dataset.idx);
+                files.splice(idx, 1);
+                if (transitions.length > idx) {
+                    transitions.splice(idx, 1);
+                }
+                render();
                 });
-                li.addEventListener('dragend', e => {
-                    dragging = null;
-                    dragIdx = null;
-                    li.classList.remove('dragging');
-                    clearDragOver();
+
+                row.appendChild(grip);
+                row.appendChild(name);
+                row.appendChild(del);
+
+                // 拖拽事件（仅文件行）
+                row.addEventListener('dragstart', function(e) {
+                window._dragSrc = i;
+                row.classList.add('dragging');
+                if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move';
                 });
-                li.addEventListener('dragover', e => {
-                    e.preventDefault();
-                    if (!dragging || dragging === li) return;
-                    const rect = li.getBoundingClientRect();
-                    const offset = e.clientY - rect.top;
-                    clearDragOver();
-                    if (offset < rect.height / 2) {
-                        li.classList.add('drag-over-top');
-                    } else {
-                        li.classList.add('drag-over-bottom');
-                    }
+                row.addEventListener('dragend', function() {
+                window._dragSrc = null;
+                row.classList.remove('dragging');
+                document.querySelectorAll('.drop-above,.drop-below').forEach(function(el) {
+                    el.classList.remove('drop-above','drop-below');
                 });
-                li.addEventListener('drop', e => {
-                    e.preventDefault();
-                    if (!dragging || dragging === li) return;
-                    const rect = li.getBoundingClientRect();
-                    const offset = e.clientY - rect.top;
-                    if (offset < rect.height / 2) {
-                        list.insertBefore(dragging, li);
-                    } else {
-                        list.insertBefore(dragging, li.nextSibling);
-                    }
-                    clearDragOver();
                 });
-                li.querySelector('.del').onclick = e => {
-                    li.remove();
-                };
-            });
-            // 仅当鼠标接近ul顶部时才显示最上方蓝线
-            list.addEventListener('dragover', e => {
+                row.addEventListener('dragover', function(e) {
                 e.preventDefault();
-                if (!dragging) return;
-                const first = list.firstElementChild;
-                if (first && e.target === list) {
-                    // 只在鼠标距离ul顶部8px内才显示最上方蓝线
-                    const ulRect = list.getBoundingClientRect();
-                    if (e.clientY - ulRect.top < 8) {
-                        clearDragOver();
-                        first.classList.add('drag-over-top');
-                    } else {
-                        clearDragOver();
-                    }
-                }
-            });
-            list.addEventListener('drop', e => {
+                if (window._dragSrc == null || window._dragSrc === i) return;
+                var rect = row.getBoundingClientRect();
+                var above = e.clientY < rect.top + rect.height / 2;
+                document.querySelectorAll('.drop-above,.drop-below').forEach(function(el) {
+                    el.classList.remove('drop-above','drop-below');
+                });
+                row.classList.add(above ? 'drop-above' : 'drop-below');
+                });
+                row.addEventListener('drop', function(e) {
                 e.preventDefault();
-                if (!dragging) return;
-                const first = list.firstElementChild;
-                if (first && e.target === list) {
-                    const ulRect = list.getBoundingClientRect();
-                    if (e.clientY - ulRect.top < 8) {
-                        list.insertBefore(dragging, first);
-                        clearDragOver();
-                    }
+                var src = window._dragSrc;
+                if (src == null || src === i) return;
+                var rect = row.getBoundingClientRect();
+                var insertAfter = e.clientY >= rect.top + rect.height / 2;
+                var newFiles = files.slice();
+                var moved = newFiles.splice(src, 1)[0];
+                var insertAt;
+                if (insertAfter) {
+                    insertAt = src < i ? i : i + 1;
+                } else {
+                    insertAt = src > i ? i : i - 1;
+                    if (insertAt < 0) insertAt = 0;
+                }
+                if (insertAt > newFiles.length) insertAt = newFiles.length;
+                newFiles.splice(insertAt, 0, moved);
+                files = newFiles;
+                // transitions 不随文件顺序改变
+                render();
+                });
+
+                list.appendChild(row);
+
+                // ── 切换特效行（在每个文件后，含末尾→首帧回环槽） ──
+                if (files.length > 1) {
+                const isWrap = (i === files.length - 1);
+                const trow = document.createElement('div');
+                trow.className = 'trans-row';
+
+                const lbl = document.createElement('span');
+                lbl.className = 'trans-label';
+                lbl.textContent = isWrap ? '↩ 末尾→首帧：' : '↕ 切换特效：';
+                if (isWrap) lbl.title = '播放列表循环时此处特效生效';
+
+                const sel = document.createElement('select');
+                sel.className = 'trans-select';
+                sel.dataset.slot = String(i);
+                TRANS.forEach(function(t) {
+                    const opt = document.createElement('option');
+                    opt.value = t.v;
+                    opt.textContent = t.l;
+                    if ((transitions[i] || 'zoom') === t.v) opt.selected = true;
+                    sel.appendChild(opt);
+                });
+                sel.addEventListener('change', function() {
+                    transitions[parseInt(sel.dataset.slot)] = sel.value;
+                });
+
+                trow.appendChild(lbl);
+                trow.appendChild(sel);
+                list.appendChild(trow);
                 }
             });
-            document.getElementById('addFile').onclick = () => {
-                vscode.postMessage({ type: 'addFileDialog' });
+            }
+
+            document.getElementById('addFile').onclick = function() {
+            vscode.postMessage({type:'addFileDialog'});
             };
-            document.getElementById('save').onclick = () => {
-                const newList = Array.from(document.querySelectorAll('li')).map(li => li.childNodes[0].textContent);
-                vscode.postMessage({ type: 'save', videos: newList });
+            document.getElementById('save').onclick = function() {
+            vscode.postMessage({type:'save', videos: files, transitions: transitions});
             };
-            document.getElementById('cancel').onclick = () => {
-                vscode.postMessage({ type: 'cancel' });
+            document.getElementById('cancel').onclick = function() {
+            vscode.postMessage({type:'cancel'});
             };
-            // 接收主进程消息，动态添加新项
-            window.addEventListener('message', event => {
-                const msg = event.data;
-                if (msg.type === 'addFiles') {
-                    for (const file of msg.files) {
-                        const li = document.createElement('li');
-                        li.draggable = true;
-                        li.innerHTML = file + '<span class="del" title="删除">🗑️</span>';
-                        li.querySelector('.del').onclick = e => li.remove();
-                        list.insertBefore(li, list.firstChild);
-                        // 重新绑定拖拽事件
-                        li.addEventListener('dragstart', e => {
-                            dragging = li;
-                            li.classList.add('dragging');
-                        });
-                        li.addEventListener('dragend', e => {
-                            dragging = null;
-                            li.classList.remove('dragging');
-                            clearDragOver();
-                        });
-                        li.addEventListener('dragover', e => {
-                            e.preventDefault();
-                            if (!dragging || dragging === li) return;
-                            const rect = li.getBoundingClientRect();
-                            const offset = e.clientY - rect.top;
-                            clearDragOver();
-                            if (offset < rect.height / 2) {
-                                li.classList.add('drag-over-top');
-                            } else {
-                                li.classList.add('drag-over-bottom');
-                            }
-                        });
-                        li.addEventListener('drop', e => {
-                            e.preventDefault();
-                            if (!dragging || dragging === li) return;
-                            const rect = li.getBoundingClientRect();
-                            const offset = e.clientY - rect.top;
-                            if (offset < rect.height / 2) {
-                                list.insertBefore(dragging, li);
-                            } else {
-                                list.insertBefore(dragging, li.nextSibling);
-                            }
-                            clearDragOver();
-                        });
-                    }
-                }
+
+            // 接收新增文件消息
+            window.addEventListener('message', function(event) {
+            var msg = event.data;
+            if (msg.type === 'addFiles') {
+                msg.files.forEach(function(f) {
+                files.unshift(f);
+                transitions.unshift('zoom');
+                });
+                render();
+            }
             });
-        </script>
-    </body>
-    </html>
+
+            render();
+            </script>
+            </body>
+            </html>
         `;
         panel.webview.onDidReceiveMessage(async (msg) => {
             if (msg.type === 'save') {
                 await config.update('videos', msg.videos, vscode.ConfigurationTarget.Global);
-                vscode.window.showInformationMessage('已保存媒体顺序。');
+                await config.update('transitions', msg.transitions, vscode.ConfigurationTarget.Global);
+                vscode.window.showInformationMessage('已保存媒体顺序与切换特效。');
                 panel.dispose();
             }
             else if (msg.type === 'cancel') {
                 panel.dispose();
             }
             else if (msg.type === 'addFileDialog') {
-                // 弹出文件选择器（跨平台，支持视频和图片）
-                let files = await this.selectVideosFallback();
+                const files = await this.selectVideosFallback();
                 if (files && files.length) {
-                    // 过滤掉包含非英文字符的路径，提示用户手动添加
-                    const nonEnglishFiles = files.filter(f => !/^[a-zA-Z0-9:./\\\-_'()\s]*$/.test(f));
-                    if (nonEnglishFiles.length > 0) {
-                        vscode.window.showWarningMessage(`检测到 ${nonEnglishFiles.length} 个文件路径包含非英文字符，建议在插件设置中手动添加。`);
-                        files = files.filter(f => !nonEnglishFiles.includes(f));
-                    }
-                    if (files.length) {
-                        panel.webview.postMessage({ type: 'addFiles', files });
-                    }
+                    panel.webview.postMessage({ type: 'addFiles', files });
                 }
             }
         });
@@ -509,8 +451,14 @@ class Background {
         this.cleanupOutdatedPatches();
         // 修复之前版本可能被 Copy-Item 破坏的文件权限
         this.repairFilePermissions();
-        // 首次安装欢迎提示
+        // 首次安装欢迎提示 - 检查版本以确保卸载重装后也能显示
+        const lastVersion = this.context.globalState.get('vscbg.lastVersion', '');
         const hasShownWelcome = this.context.globalState.get('welcomeShown', false);
+        // 如果版本不同（说明是新安装或卸载重装），清除旧的 welcomeShown 状态
+        if (lastVersion !== constants_js_1.VERSION) {
+            await this.context.globalState.update('vscbg.lastVersion', constants_js_1.VERSION);
+            await this.context.globalState.update('welcomeShown', false);
+        }
         if (!hasShownWelcome) {
             await this.context.globalState.update('welcomeShown', true);
             const action = await vscode.window.showInformationMessage('VSCode Background 已就绪！请配置视频/图片文件地址以开始使用。', '配置视频路径', '打开文件选择器', '稍后');
@@ -596,6 +544,7 @@ class Background {
             const content = fs.readFileSync(jsPath, 'utf-8');
             const patchCode = (0, patchGenerator_js_1.generatePatch)({
                 videos: config.videos,
+                transitions: config.transitions,
                 opacity: config.opacity,
                 switchInterval: config.switchInterval,
                 theme: config.theme,
@@ -785,6 +734,7 @@ class Background {
         return {
             enabled: config.get('enabled', false),
             videos: videos,
+            transitions: config.get('transitions', []),
             opacity: config.get('opacity', 0.8),
             switchInterval: config.get('switchInterval', 180),
             theme: config.get('theme', 'glass'),

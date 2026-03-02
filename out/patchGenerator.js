@@ -178,53 +178,143 @@ function getThemeCss(theme, opacity) {
     }
 }
 /**
+ * 获取单个切换特效的参数定义（类比 getThemeCss）
+ * 支持 10 种特效：zoom, fade, slide-left, slide-right,
+ *               wipe-up, wipe-down, spiral, flip, blur, instant
+ */
+function getTransitionDef(name) {
+    switch (name) {
+        case 'fade':
+            // 纯淡入淡出，无缩放
+            return {
+                d: '1s ease', oi: '0', ti: 'scale(1)', fi: 'blur(0px)',
+                of: '1', tf: 'scale(1)', ff: 'blur(0px)',
+                xo: '0', xt: 'scale(1)', xf: 'blur(0px)', rm: 1050
+            };
+        case 'slide-left':
+            // 从右侧滑入，旧媒体向左退出
+            return {
+                d: '0.6s ease', oi: '1', ti: 'translateX(100%)', fi: 'blur(0px)',
+                of: '1', tf: 'translateX(0)', ff: 'blur(0px)',
+                xo: '0', xt: 'translateX(-30%)', xf: 'blur(0px)', rm: 700
+            };
+        case 'slide-right':
+            // 从左侧滑入，旧媒体向右退出
+            return {
+                d: '0.6s ease', oi: '1', ti: 'translateX(-100%)', fi: 'blur(0px)',
+                of: '1', tf: 'translateX(0)', ff: 'blur(0px)',
+                xo: '0', xt: 'translateX(30%)', xf: 'blur(0px)', rm: 700
+            };
+        case 'wipe-up':
+            // 从底部上滑进入，旧媒体向上退出
+            return {
+                d: '0.6s ease', oi: '1', ti: 'translateY(100%)', fi: 'blur(0px)',
+                of: '1', tf: 'translateY(0)', ff: 'blur(0px)',
+                xo: '0', xt: 'translateY(-30%)', xf: 'blur(0px)', rm: 700
+            };
+        case 'wipe-down':
+            // 从顶部下滑进入，旧媒体向下退出
+            return {
+                d: '0.6s ease', oi: '1', ti: 'translateY(-100%)', fi: 'blur(0px)',
+                of: '1', tf: 'translateY(0)', ff: 'blur(0px)',
+                xo: '0', xt: 'translateY(30%)', xf: 'blur(0px)', rm: 700
+            };
+        case 'spiral':
+            // 螺旋进入：缩小+旋转弹入，退出放大+反旋
+            return {
+                d: '0.9s cubic-bezier(0.34,1.56,0.64,1)',
+                oi: '0', ti: 'scale(0.8) rotate(-12deg)', fi: 'blur(0px)',
+                of: '1', tf: 'scale(1) rotate(0deg)', ff: 'blur(0px)',
+                xo: '0', xt: 'scale(1.1) rotate(8deg)', xf: 'blur(0px)', rm: 1000
+            };
+        case 'flip':
+            // 3D 水平翻转：从 -90° 翻入，退出向 +90° 翻出
+            return {
+                d: '0.5s ease-in-out', oi: '1', ti: 'perspective(1200px) rotateY(-90deg)', fi: 'blur(0px)',
+                of: '1', tf: 'perspective(1200px) rotateY(0deg)', ff: 'blur(0px)',
+                xo: '0', xt: 'perspective(1200px) rotateY(90deg)', xf: 'blur(0px)', rm: 600
+            };
+        case 'blur':
+            // 模糊淡入：进入从模糊到清晰，退出从清晰到模糊
+            return {
+                d: '0.8s ease', oi: '0', ti: 'scale(1.02)', fi: 'blur(12px)',
+                of: '1', tf: 'scale(1)', ff: 'blur(0px)',
+                xo: '0', xt: 'scale(0.98)', xf: 'blur(12px)', rm: 900
+            };
+        case 'instant':
+            // 瞬间切换，无动画
+            return {
+                d: '50ms', oi: '1', ti: 'scale(1)', fi: 'blur(0px)',
+                of: '1', tf: 'scale(1)', ff: 'blur(0px)',
+                xo: '0', xt: 'scale(1)', xf: 'blur(0px)', rm: 100
+            };
+        case 'zoom':
+        default:
+            // 缩放淡化（默认）：放大淡入，缩小淡出
+            return {
+                d: '1s ease', oi: '0', ti: 'scale(1.04)', fi: 'blur(0px)',
+                of: '1', tf: 'scale(1)', ff: 'blur(0px)',
+                xo: '0', xt: 'scale(0.96)', xf: 'blur(0px)', rm: 1050
+            };
+    }
+}
+/** 将所有已知特效序列化为注入 JS 中的 TD 对象字面量字符串 */
+function buildTDTableJs() {
+    const names = ['zoom', 'fade', 'slide-left', 'slide-right', 'wipe-up', 'wipe-down', 'spiral', 'flip', 'blur', 'instant'];
+    const rows = names.map(name => {
+        const d = getTransitionDef(name);
+        return `'${name}':{d:'${d.d}',oi:'${d.oi}',ti:'${d.ti}',fi:'${d.fi}',of:'${d.of}',tf:'${d.tf}',ff:'${d.ff}',xo:'${d.xo}',xt:'${d.xt}',xf:'${d.xf}',rm:${d.rm}}`;
+    });
+    return `{\n${rows.join(',\n')}\n}`;
+}
+/**
  * 注入视频/图片背景切换逻辑
- * 支持 MP4/WebM/OGG 视频与 JPG/PNG/GIF/WebP 图片混合播放
+ * 切换特效由 getTransitionDef / buildTDTableJs 提供，支持 10 种效果。
+ * transitions[i] 表示从 media[i] 切换到 media[(i+1)%n] 时的特效，
+ * 包含最后一个媒体回到第一个的回环切换（长度 = videos.length）。
  */
 function generateVideoPatch(config) {
     const mediaUrls = config.videos.map(v => (0, vscodePath_js_1.normalizeVideoUrl)(v));
+    const transitions = config.transitions || [];
     const intervalMs = config.switchInterval * 1000;
+    const tdTable = buildTDTableJs();
     const switchCode = intervalMs > 0 && mediaUrls.length > 1
         ? `setInterval(function(){play((idx+1)%media.length);},${intervalMs});`
         : '';
     return `(function(){
 var media=${JSON.stringify(mediaUrls)};
 if(!media.length)return;
+var transitions=${JSON.stringify(transitions)};
 var idx=0;
 var current=null;
 var wrap=document.createElement('div');
 wrap.id='vscbg-wrap';
 wrap.style.cssText='position:fixed;inset:0;width:100vw;height:100vh;z-index:-100;pointer-events:none;overflow:hidden;';
+var TD=${tdTable};
+function getTD(name){return TD[name]||TD['zoom'];}
 function isImage(u){return/\\.(jpe?g|png|gif|webp|bmp|svg)(\\?|#|$)/i.test(u)||u.startsWith('data:image');}
-function makeEl(u){
+function makeEl(u,td){
 var el;
-if(isImage(u)){
-el=document.createElement('img');
-el.src=u;
-el.style.cssText='position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center;transition:opacity 0.8s ease;opacity:0;';
-}else{
-el=document.createElement('video');
-el.src=u;
-el.muted=true;
-el.autoplay=true;
-el.loop=true;
-el.setAttribute('playsinline','');
-el.style.cssText='position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center;transition:opacity 0.8s ease;opacity:0;';
-el.load();
-el.play().catch(function(){});
-}
+if(isImage(u)){el=document.createElement('img');el.src=u;}
+else{el=document.createElement('video');el.src=u;el.muted=true;el.autoplay=true;el.loop=true;el.setAttribute('playsinline','');el.load();el.play().catch(function(){});}
+el.style.cssText='position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center;';
+el.style.transition='opacity '+td.d+',transform '+td.d+',filter '+td.d;
+el.style.opacity=td.oi;el.style.transform=td.ti;el.style.filter=td.fi;
 return el;
 }
 function play(i){
+var slot=idx%media.length;
+var tname=(transitions.length>slot)?transitions[slot]:'zoom';
+var td=getTD(tname);
 idx=i%media.length;
-var el=makeEl(media[idx]);
+var el=makeEl(media[idx],td);
 wrap.appendChild(el);
 var raf=window.requestAnimationFrame||function(fn){setTimeout(fn,16);};
-raf(function(){raf(function(){el.style.opacity='1';});});
-if(current){
-var old=current;
-setTimeout(function(){old.style.opacity='0';setTimeout(function(){if(old.parentNode)old.parentNode.removeChild(old);},850);},50);
-}
+raf(function(){raf(function(){el.style.opacity=td.of;el.style.transform=td.tf;el.style.filter=td.ff;});});
+if(current){var old=current;
+old.style.transition='opacity '+td.d+',transform '+td.d+',filter '+td.d;
+old.style.opacity=td.xo;old.style.transform=td.xt;old.style.filter=td.xf;
+setTimeout(function(){if(old.parentNode)old.parentNode.removeChild(old);},td.rm);}
 current=el;
 }
 function init(){

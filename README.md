@@ -4,11 +4,23 @@ A Visual Studio Code extension that sets video backgrounds (MP4, WebM, OGG) in y
 
 English | [简体中文](./README.zh-CN.md)
 
+---
+
+## 🔗 Resources
+
+- **[GitHub Discussions](https://github.com/caoge5524/vscode-background/discussions)** — Share and discover community backgrounds
+- **[Workshop Guide](./WORKSHOP.md)** — Complete guide to sharing backgrounds
+- **[Issues & Bugs](https://github.com/caoge5524/vscode-background/issues)** — Report problems
+- **[Changelog](./CHANGELOG.md)** — Version history and updates
+
+---
+
 ## Features
 
 - **Video Background Support**: MP4, WebM, or OGG videos as your VSCode background
-- **🆕 Image Background Support**: JPG, PNG, GIF (animated), WebP images as backgrounds
-- **Mixed Media Slideshow**: Videos and images can be freely mixed in the same playlist with smooth fade transitions
+- **🆕 Image Background Support**: JPG, PNG, GIF (animated), WebP, BMP, SVG as backgrounds
+- **🆕 Per-Slot Transition Effects**: Choose from 10 transition types (zoom, fade, slide-left, slide-right, wipe-up, wipe-down, spiral, flip, blur, instant) for each slot — transitions are slot-bound including wrap-around from last back to first
+- **Mixed Media Slideshow**: Videos and images can be freely mixed in the same playlist
 - **Multiple Media**: Load multiple videos/images with automatic rotation at configurable intervals
 - **Settings.json Editable**: All configuration directly in `settings.json`, survives VSCode updates
 - **Persistent Media**: File paths stored in settings, files remain in original locations (not copied)
@@ -23,6 +35,19 @@ English | [简体中文](./README.zh-CN.md)
 ## Demo
 
 >![Demo](./images/效果示例.gif)
+
+---
+
+## What's New in v2.2.0
+
+**10-Type Per-Slot Transition System**:
+- ✅ **10 transition types** — `zoom` (scale+fade), `fade` (crossfade), `slide-left`, `slide-right`, `wipe-up` (enter from bottom), `wipe-down` (enter from top), `spiral` (rotate+scale spring), `flip` (3D rotateY), `blur` (blur-fade), `instant`
+- ✅ **Wrap-around transition** — `transitions[n-1]` covers the last→first loop; array length is now `videos.length`
+- ✅ **Slot-bound** — transitions stay at their index when you drag files
+- ✅ **Visual editor redesigned** — `Manage Media` shows a ↕ row between each file pair **plus** a ↩ wrap-around row at the bottom
+- ✅ **Filter support** — `blur` effect and all effects now animate CSS `filter` in addition to `opacity`/`transform`
+
+> 💡 **Transition tip**: `spiral`/`flip` for drama; `slide-left`/`slide-right` for slideshow; `fade`/`zoom` for ambient; `instant` for a sharp cut.
 
 ---
 
@@ -101,15 +126,20 @@ Open Settings (`Ctrl+,`) and search "VSCode Background":
 ```
 
 
-### Managing Video/Image Order
+### Managing Video/Image Order and Transitions
 
-You can visually manage the order, add, or delete videos/images via the command:
+You can visually manage the order and per-slot transitions via the command:
 
-- **`VSCode Background: Manage Videos`**
+- **`VSCode Background: Manage Media`**
 
-This opens a modern drag-and-drop UI for sorting, deleting, or adding media files. Changes are saved to your settings and take effect after reapplying.
+This opens a drag-and-drop UI showing:
+- **File rows** — drag to reorder; click 🗑️ to delete
+- **Transition rows** (↕) between each pair of files — pick one of 10 effects from the dropdown
+- **Wrap-around row** (↩) after the last file — controls the last→first transition when the playlist loops
 
-Then run: **`VSCode Background: Install / Update`** command
+**Important**: transition effects are **slot-bound** — they stay at their index even when you drag files around.
+
+Save → run **`VSCode Background: Install / Update`** → restart VSCode.
 
 
 ### Via Commands
@@ -125,13 +155,14 @@ Press `Ctrl+Shift+P` to open Command Palette:
 
 ## Extension Settings
 
-| Setting                           | Type    | Default | Description                                        |
-| --------------------------------- | ------- | ------- | -------------------------------------------------- |
-| `vscodeBackground.enabled`        | boolean | false   | Enable/disable background                          |
-| `vscodeBackground.videos`         | array   | []      | **Media file paths** (videos, images, or URLs)     |
-| `vscodeBackground.opacity`        | number  | 0.8     | Background opacity (0-1)                           |
-| `vscodeBackground.switchInterval` | number  | 180     | Switch interval in **seconds** (0 = infinite loop) |
-| `vscodeBackground.theme`          | string  | "glass" | Theme: "glass", "matte", "neon", "cinema", etc.    |
+| Setting                           | Type    | Default | Description                                                                      |
+| --------------------------------- | ------- | ------- | -------------------------------------------------------------------------------- |
+| `vscodeBackground.enabled`        | boolean | false   | Enable/disable background                                                        |
+| `vscodeBackground.videos`         | array   | []      | **Media file paths** (videos, images, or URLs)                                   |
+| `vscodeBackground.transitions`    | array   | []      | **Per-slot transition** (10 types: `zoom`, `fade`, `slide-left`, `slide-right`, `wipe-up`, `wipe-down`, `spiral`, `flip`, `blur`, `instant`; length = `videos.length`) |
+| `vscodeBackground.opacity`        | number  | 0.8     | Background opacity (0-1)                                                         |
+| `vscodeBackground.switchInterval` | number  | 180     | Switch interval in **seconds** (0 = infinite loop)                               |
+| `vscodeBackground.theme`          | string  | "glass" | Theme: "glass", "matte", "neon", "cinema", etc.                                  |
 
 ### Video Path Formats
 
@@ -249,12 +280,25 @@ As shown above, if you see a popup error like "Access Denied" or "Failed to crea
 
 ---
 
-## Supported Video Formats
+## Supported Media Formats
+
+### Videos
 
 - **MP4** (H.264/H.265)
 - **WebM** (VP8/VP9)
 - **OGG** (Theora)
 - **HTTPS URLs** (streamed, not downloaded)
+
+### Images
+
+- **JPG / JPEG**
+- **PNG**
+- **GIF** (animated GIFs supported)
+- **WebP**
+- **BMP**
+- **SVG**
+
+Videos and images can be **freely mixed** in `vscodeBackground.videos` for a blended slideshow.
 
 ## Requirements
 
@@ -362,9 +406,9 @@ src/
 
 ### Planned Features
 
-- ✨ Image background support (JPG, PNG, GIF)
+- ✅ Image background support (JPG, PNG, GIF, WebP, BMP, SVG)
+- ✅ 10-type per-slot transition effects with wrap-around
 - 🎨 More theme styles (Gradient, Vignette, etc.)
-- 🎬 Video transition effects (Fade, Slide, Zoom)
 - ⚙️ Per-workspace configurations
 - 🔊 Volume control and audio settings
 - 🎯 Time-based background switching
