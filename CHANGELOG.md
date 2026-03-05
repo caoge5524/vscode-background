@@ -25,6 +25,15 @@ All notable changes to the "vscode-background" extension will be documented in t
 - No more "no response" when jumping before saving
 - Restarting VSCode after a jump does not change playback order (15-second freshness window)
 
+#### Troubleshooting
+
+- **⏩ Jump Button Not Responding** — If the ⏩ button in "Manage Media" is not working:
+  1. Run the command: **`VSCode Background: Install / Update`**
+  2. Accept the administrator permission prompt
+  3. Restart VSCode
+  
+  **Why**: Polling code is only injected when the patch is applied. If you configured videos but never clicked "Apply", the patch doesn't exist—so the button can't work. Running the above command ensures the polling code is in place.
+
 ---
 
 ### [2.3.1] - 2026-03-05
@@ -513,6 +522,15 @@ After:  $appRoot/../../../../../../background-videos
 - 打开《管理媒体》面板时 ⏩ 按钮立即可用
 - 不必先保存再按⏩，第一次就能跳转
 - 跳转后重启 VSCode，播放顺序保持不变（基于 15 秒时间戳检查）
+
+#### 故障排除
+
+- **⏩ 跳转按钮无反应** — 如果《管理媒体》中的 ⏩ 按钮不工作：
+  1. 运行命令：**`VSCode Background: 安装 / 更新背景`**
+  2. 接受管理员权限提示
+  3. 重启 VSCode
+
+  **为什么会这样**：轮询代码仅在应用补丁时才会被注入。如果你配置了视频但补丁未被应用，跳转功能就无法工作。运行上述命令可确保轮询代码已就位。
 
 ---
 
