@@ -966,6 +966,9 @@ class Background {
     /**
      * 写入跳转指令文件，注入的 JS 通过轮询 vscbg-jump.json 实现立即切换背景
      * 直接使用 webview 传入的数组索引，避免路径字符串进行 indexOf 匹配（Windows 反斜杠等编码差异导致 -1）
+     *
+     * 重要：跳转操作仅影响当前背景显示，不影响后续自动轮换顺序。
+     * 实现方式：注入 JS 读取文件后，extension 立即删除该文件，防止重启时再次应用，保证重启后播放顺序不变。
      */
     jumpToMedia(idx) {
         const config = vscode.workspace.getConfiguration('vscodeBackground');
@@ -977,6 +980,15 @@ class Background {
         const jumpFile = path.join(this.context.extensionPath, 'vscbg-jump.json');
         try {
             fs.writeFileSync(jumpFile, JSON.stringify({ idx, ts: Date.now() }), 'utf-8');
+            // 写入后立即删除，防止重启时再次读取旧指令，保证播放顺序不变
+            setTimeout(() => {
+                try {
+                    if (fs.existsSync(jumpFile)) {
+                        fs.unlinkSync(jumpFile);
+                    }
+                }
+                catch { /* ignore */ }
+            }, 3000);
         }
         catch (e) {
             vscode.window.showErrorMessage(`跳转失败: ${e}`);

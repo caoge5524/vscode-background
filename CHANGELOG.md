@@ -8,6 +8,18 @@ All notable changes to the "vscode-background" extension will be documented in t
 
 ## English
 
+### [2.3.1] - 2026-03-05
+
+#### Bug Fixes
+
+- **Jump button resets playback order on restart** — fixed: after jumping to a media via the ⏩ button, restarting VSCode would continue playback from the jumped position instead of the original configured order. Root cause: `vscbg-jump.json` file persisted across restarts, and the injected JS re-applied the old jump command on `init()`. Solution: extension now deletes the jump file 3 seconds after writing, ensuring restart always begins from the first media.
+
+#### Technical Notes
+
+- `background.ts`: `jumpToMedia()` now calls `setTimeout(..., 3000)` to delete `vscbg-jump.json` after write, preventing re-application on restart. This preserves the original playback order across VSCode restarts.
+
+---
+
 ### [2.3.0] - 2026-03-05
 
 #### New Features
@@ -465,6 +477,14 @@ After:  $appRoot/../../../../../../background-videos
 ---
 
 ## 简体中文
+
+### [2.3.1] - 2026-03-05
+
+#### 缺陷修复
+
+- **⏩按钮跳转后重启导致播放顺序改变** 修复：点击⏩按钮跳转到某媒体后，重启 VSCode 会从跳转位置继续播放，而不是恢复为原配置顺序。根本原因：`vscbg-jump.json` 文件跨重启持久化，注入 JS 启动时再次应用旧指令。修复方案：extension 在写入文件后 3 秒自动删除，确保重启时始终从第一个媒体开始，播放顺序不受跳转影响。
+
+---
 
 ### [2.3.0] - 2026-03-05
 

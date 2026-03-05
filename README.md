@@ -44,6 +44,7 @@ English | [简体中文](./README.zh-CN.md)
 **Jump Button + Path Fixes**:
 - ✅ **⏩ Instant jump** — each file row in "Manage Media" now has a ⏩ button; clicking it immediately switches the live background to that media via a lightweight `vscbg-jump.json` IPC file polled every 500 ms by the injected JS (requires reinstalling the patch with v2.3.0+)
 - ✅ **Chinese / Unicode path fix** — removed the unnecessary non-ASCII guard in `Add Media`; all Unicode file paths are now accepted by the file picker
+- ✅ **Playback order preserved** — jumping to a media only changes the current display; restarting VSCode automatically restores the original configured playback order, unaffected by the jump
 
 > ⚠️ The ⏩ jump button requires the background patch to be (re-)installed with v2.3.0+. Run **`Install / Update`** once to activate polling.
 
