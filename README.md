@@ -354,6 +354,16 @@ Videos and images can be **freely mixed** in `vscodeBackground.videos` for a ble
 - Verify file path is correct
 - Run diagnostics with `Show Diagnostics` command
 
+### ⏩ Jump button not responding
+
+If the ⏩ button in "Manage Media" doesn't work:
+
+1. Run command: **`VSCode Background: Install / Update`**
+2. Accept the Administrator privilege prompt
+3. Restart VSCode
+
+**Why this happens**: The jump polling code is only injected when the patch is applied. If you configured videos but the patch wasn't applied yet, the jump feature won't work. Running the command above ensures the polling loop is in place.
+
 ## Release Notes
 
 ### v2.0.0 - 2026-02-15
@@ -425,15 +435,27 @@ src/
 
 ## Future Roadmap
 
-### Planned Features
+### Completed Features ✅
 
 - ✅ Image background support (JPG, PNG, GIF, WebP, BMP, SVG)
 - ✅ 10-type per-slot transition effects with wrap-around
-- 🎨 More theme styles (Gradient, Vignette, etc.)
-- ⚙️ Per-workspace configurations
-- 🔊 Volume control and audio settings
-- 🎯 Time-based background switching
-- 📦 Built-in background library
-- 🌐 Cloud sync capabilities
+- ✅ ⏩ Instant jump to any media in "Manage Media" panel (IPC file polling)
+- ✅ Timestamp-based stale jump prevention (15-second freshness window)
+- ✅ Auto-patch detection and application when opening "Manage Media"
+- ✅ Drag-and-drop media management and sorting
+- ✅ Per-slot transition binding (transitions stay at position when dragging files)
+- ✅ Rich diagnostics and troubleshooting tools
+
+### Planned Features 🚀
+
+- 🎨 More theme styles (Gradient, Vignette, dark corners, etc.)
+- ⚙️ Per-workspace configurations (different backgrounds for different workspaces)
+- 🔊 Volume control and audio settings (mute/unmute background media)
+- 🎯 Time-based background switching (switch backgrounds on schedule, by time of day)
+- 🎬 Media playback controls (play/pause/next/previous in VSCode UI)
+- 📦 Built-in background library (curated collection of free backgrounds)
+- 🌐 Cloud sync capabilities (sync background settings across devices)
+- 🎨 Custom CSS injection for advanced theme customization
+- 📊 Background statistics (track most-played backgrounds)
 
 Your feedback drives our improvements! 🚀
