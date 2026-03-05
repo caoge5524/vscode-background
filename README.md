@@ -20,6 +20,7 @@ English | [简体中文](./README.zh-CN.md)
 - **Video Background Support**: MP4, WebM, or OGG videos as your VSCode background
 - **🆕 Image Background Support**: JPG, PNG, GIF (animated), WebP, BMP, SVG as backgrounds
 - **🆕 Per-Slot Transition Effects**: Choose from 10 transition types (zoom, fade, slide-left, slide-right, wipe-up, wipe-down, spiral, flip, blur, instant) for each slot — transitions are slot-bound including wrap-around from last back to first
+- **🆕 ⏩ Instant Jump**: Click the ⏩ button on any file row in "Manage Media" to instantly switch the running background — no restart needed
 - **Mixed Media Slideshow**: Videos and images can be freely mixed in the same playlist
 - **Multiple Media**: Load multiple videos/images with automatic rotation at configurable intervals
 - **Settings.json Editable**: All configuration directly in `settings.json`, survives VSCode updates
@@ -35,6 +36,16 @@ English | [简体中文](./README.zh-CN.md)
 ## Demo
 
 >![Demo](./images/效果示例.gif)
+
+---
+
+## What's New in v2.3.0
+
+**Jump Button + Path Fixes**:
+- ✅ **⏩ Instant jump** — each file row in "Manage Media" now has a ⏩ button; clicking it immediately switches the live background to that media via a lightweight `vscbg-jump.json` IPC file polled every 500 ms by the injected JS (requires reinstalling the patch with v2.3.0+)
+- ✅ **Chinese / Unicode path fix** — removed the unnecessary non-ASCII guard in `Add Media`; all Unicode file paths are now accepted by the file picker
+
+> ⚠️ The ⏩ jump button requires the background patch to be (re-)installed with v2.3.0+. Run **`Install / Update`** once to activate polling.
 
 ---
 
@@ -133,7 +144,7 @@ You can visually manage the order and per-slot transitions via the command:
 - **`VSCode Background: Manage Media`**
 
 This opens a drag-and-drop UI showing:
-- **File rows** — drag to reorder; click 🗑️ to delete
+- **File rows** — drag to reorder; click ⏩ to instantly jump to that background; click 🗑️ to delete
 - **Transition rows** (↕) between each pair of files — pick one of 10 effects from the dropdown
 - **Wrap-around row** (↩) after the last file — controls the last→first transition when the playlist loops
 
@@ -155,14 +166,14 @@ Press `Ctrl+Shift+P` to open Command Palette:
 
 ## Extension Settings
 
-| Setting                           | Type    | Default | Description                                                                      |
-| --------------------------------- | ------- | ------- | -------------------------------------------------------------------------------- |
-| `vscodeBackground.enabled`        | boolean | false   | Enable/disable background                                                        |
-| `vscodeBackground.videos`         | array   | []      | **Media file paths** (videos, images, or URLs)                                   |
+| Setting                           | Type    | Default | Description                                                                                                                                                            |
+| --------------------------------- | ------- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `vscodeBackground.enabled`        | boolean | false   | Enable/disable background                                                                                                                                              |
+| `vscodeBackground.videos`         | array   | []      | **Media file paths** (videos, images, or URLs)                                                                                                                         |
 | `vscodeBackground.transitions`    | array   | []      | **Per-slot transition** (10 types: `zoom`, `fade`, `slide-left`, `slide-right`, `wipe-up`, `wipe-down`, `spiral`, `flip`, `blur`, `instant`; length = `videos.length`) |
-| `vscodeBackground.opacity`        | number  | 0.8     | Background opacity (0-1)                                                         |
-| `vscodeBackground.switchInterval` | number  | 180     | Switch interval in **seconds** (0 = infinite loop)                               |
-| `vscodeBackground.theme`          | string  | "glass" | Theme: "glass", "matte", "neon", "cinema", etc.                                  |
+| `vscodeBackground.opacity`        | number  | 0.8     | Background opacity (0-1)                                                                                                                                               |
+| `vscodeBackground.switchInterval` | number  | 180     | Switch interval in **seconds** (0 = infinite loop)                                                                                                                     |
+| `vscodeBackground.theme`          | string  | "glass" | Theme: "glass", "matte", "neon", "cinema", etc.                                                                                                                        |
 
 ### Video Path Formats
 

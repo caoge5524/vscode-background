@@ -8,6 +8,7 @@ export interface PatchConfig {
     switchInterval: number; // 秒
     theme: ThemeType;
     transitions: string[]; // 每对媒体间的切换特效，长度 = videos.length - 1
+    extensionPath?: string; // 用于背景跳转 IPC：注入 JS 会轮询此目录下的 vscbg-jump.json
 }
 
 /**
@@ -332,6 +333,16 @@ function generateVideoPatch(config: PatchConfig): string {
         ? `setInterval(function(){play((idx+1)%media.length);},${intervalMs});`
         : '';
 
+    // 跳转 IPC：轮询扩展目录下的 vscbg-jump.json，实现从管理面板立即切换背景
+    let jumpCode = '';
+    if (config.extensionPath) {
+        let p = config.extensionPath.replace(/\\/g, '/').replace(/ /g, '%20');
+        if (!/^\//.test(p)) { p = '/' + p; }
+        const jumpFileUrl = `vscode-file://vscode-app${p}/vscbg-jump.json`;
+        // 用短变量名减少注入代码体积；500ms 轮询，cache:'no-store' 防止浏览器缓存旧内容
+        jumpCode = `var _vjTs=0;setInterval(function(){fetch(${JSON.stringify(jumpFileUrl)}+'?_='+Date.now(),{cache:'no-store'}).then(function(r){if(!r.ok)return null;return r.json();}).then(function(d){if(d&&typeof d.ts==='number'&&d.ts!==_vjTs){_vjTs=d.ts;play((d.idx||0)%media.length);}}).catch(function(){});},500);`;
+    }
+
     return `(function(){
 var media=${JSON.stringify(mediaUrls)};
 if(!media.length)return;
@@ -372,6 +383,7 @@ function init(){
 document.body.insertBefore(wrap,document.body.firstChild);
 play(0);
 ${switchCode}
+${jumpCode}
 }
 if(document.body){init();}
 else{document.addEventListener('DOMContentLoaded',init);}

@@ -179,16 +179,31 @@ class Background {
                 // 没有写入权限，可能需要修复
             }
             console.log(`[VSCode Background] Detected permission issue on: ${recordedPath}`);
-            console.log('[VSCode Background] Attempting to repair file permissions (resetting ACL to inherit from parent)...');
-            // 使用 icacls 重置文件 ACL 为从父目录继承（不需要管理员权限即可尝试）
-            const escapedPath = recordedPath.replace(/"/g, '\\"');
-            (0, child_process_1.exec)(`icacls "${escapedPath}" /reset /Q`, { timeout: 10000 }, (error) => {
+            console.log('[VSCode Background] Attempting to repair ACL inheritance on directory chain...');
+            // 从记录的 JS 文件路径向上直到 VS Code 安装根目录，对每一级路径重置 ACL 继承
+            // 修复范围：文件本身 + 各级父目录，确保 VS Code 更新程序能正常创建文件和目录
+            const vsRoot = path.dirname(path.dirname(path.dirname(vscode.env.appRoot)));
+            const chain = [];
+            let cur = recordedPath;
+            for (let i = 0; i < 20; i++) {
+                chain.push(cur);
+                if (cur.toLowerCase() === vsRoot.toLowerCase()) {
+                    break;
+                }
+                const up = path.dirname(cur);
+                if (up === cur) {
+                    break;
+                }
+                cur = up;
+            }
+            // 逐条运行 icacls /reset；当前用户权限不足的路径会跳过（/C），不影响其他路径
+            const cmds = chain.map(p => `icacls "${p.replace(/"/g, '\\"')}" /reset /Q /C`).join(' & ');
+            (0, child_process_1.exec)(cmds, { timeout: 30000 }, (error) => {
                 if (error) {
-                    console.warn('[VSCode Background] Failed to repair file permissions with icacls:', error.message);
-                    console.warn('[VSCode Background] VS Code updates may fail. Consider running VS Code as admin once to fix.');
+                    console.warn('[VSCode Background] Partial ACL repair failure (may need admin):', error.message);
                 }
                 else {
-                    console.log('[VSCode Background] File permissions repaired successfully');
+                    console.log('[VSCode Background] ACL repair completed for', chain.length, 'paths');
                 }
             });
         }
@@ -237,6 +252,8 @@ class Background {
             .file-name{flex:1;word-break:break-all;font-size:0.97rem;}
             .del{margin-left:10px;color:#ff6b81;cursor:pointer;font-size:1.1em;padding:2px 7px;border-radius:6px;transition:background 0.15s,color 0.15s;flex-shrink:0;}
             .del:hover{background:#ff6b8133;color:#fff;}
+            .play-btn{margin-left:0;margin-right:8px;color:#5aab8e;cursor:pointer;font-size:0.9em;padding:2px 8px;border-radius:6px;transition:background 0.15s,color 0.15s;flex-shrink:0;user-select:none;letter-spacing:1px;}
+            .play-btn:hover{background:#5aab8e33;color:#8dffd4;}
             .trans-row{display:flex;align-items:center;padding:4px 14px 4px 44px;margin:0;background:rgba(32,44,58,0.6);border-left:2px solid #1e4d7a;border-right:2px solid #1e4d7a;min-width:580px;}
             .trans-label{color:#5d85aa;font-size:0.8rem;margin-right:10px;white-space:nowrap;user-select:none;}
             .trans-select{background:#18202c;color:#a8c4dc;border:1px solid #2d5a8e;border-radius:5px;padding:3px 10px;font-size:0.82rem;cursor:pointer;outline:none;}
@@ -298,6 +315,16 @@ class Background {
                 grip.textContent = '⠿';
                 grip.title = '拖拽排序';
 
+                const playBtn = document.createElement('span');
+                playBtn.className = 'play-btn';
+                playBtn.textContent = '⏩';
+                playBtn.title = '立即跳转到此媒体（直接切换当前背景）';
+                playBtn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                // 发送索引（不发路径），避免路径字符串匹配问题
+                vscode.postMessage({type:'jumpTo', idx: i});
+                });
+
                 const name = document.createElement('span');
                 name.className = 'file-name';
                 name.textContent = file;
@@ -318,6 +345,7 @@ class Background {
                 });
 
                 row.appendChild(grip);
+                row.appendChild(playBtn);
                 row.appendChild(name);
                 row.appendChild(del);
 
@@ -443,6 +471,9 @@ class Background {
                     panel.webview.postMessage({ type: 'addFiles', files });
                 }
             }
+            else if (msg.type === 'jumpTo') {
+                this.jumpToMedia(msg.idx);
+            }
         });
     }
     /** 启动时检查补丁状态，如有需要提示重新应用 */
@@ -548,6 +579,7 @@ class Background {
                 opacity: config.opacity,
                 switchInterval: config.switchInterval,
                 theme: config.theme,
+                extensionPath: this.context.extensionPath,
             });
             const patched = (0, patchFile_js_1.applyPatch)(content, patchCode);
             // 尝试直接写入
@@ -614,15 +646,6 @@ class Background {
     async addVideos() {
         const selectedFiles = await this.selectVideosFallback();
         if (!selectedFiles || selectedFiles.length === 0) {
-            return;
-        }
-        // 检测是否包含非英文字符
-        const nonEnglishFiles = selectedFiles.filter(f => !/^[a-zA-Z0-9:\/\-._()\s]*$/.test(f));
-        if (nonEnglishFiles.length > 0) {
-            const action = await vscode.window.showWarningMessage(`检测到 ${nonEnglishFiles.length} 个文件路径包含非英文字符，建议在插件设置中添加。\n\n如需继续，请在 settings.json 中手动添加这些路径。`, '编辑 settings.json', '取消');
-            if (action === '编辑 settings.json') {
-                await vscode.commands.executeCommand('workbench.action.openSettingsJson');
-            }
             return;
         }
         const config = vscode.workspace.getConfiguration('vscodeBackground');
@@ -778,10 +801,24 @@ class Background {
         const escapedTempFile = tempFile.replace(/'/g, "''");
         const escapedFilePath = filePath.replace(/'/g, "''");
         const escapedResultFile = resultFile.replace(/'/g, "''");
+        // VS Code 安装根目录 = appRoot 往上三级（appRoot = {vsroot}/{hash}/resources/app）
+        const vsRoot = path.dirname(path.dirname(path.dirname(vscode.env.appRoot)));
+        const escapedVsRoot = vsRoot.replace(/'/g, "''");
         const script = [
             'try {',
             `    $content = [System.IO.File]::ReadAllText('${escapedTempFile}', [System.Text.Encoding]::UTF8)`,
             `    [System.IO.File]::WriteAllText('${escapedFilePath}', $content, (New-Object System.Text.UTF8Encoding $false))`,
+            // 写入成功后立即重置 ACL 继承，从目标文件向上直到 VS Code 安装根目录
+            // 这确保 VS Code 更新程序（以普通用户运行）在下次更新时能正常创建/修改文件和目录
+            `    $vsRoot = '${escapedVsRoot}'`,
+            `    $cur = '${escapedFilePath}'`,
+            `    for ($i = 0; $i -lt 20; $i++) {`,
+            `        if (Test-Path "$cur") { & icacls "$cur" /reset /Q 2>$null | Out-Null }`,
+            `        if ($cur -ieq $vsRoot) { break }`,
+            `        $up = [System.IO.Path]::GetDirectoryName($cur)`,
+            `        if (-not $up -or $up -ieq $cur) { break }`,
+            `        $cur = $up`,
+            `    }`,
             `    'SUCCESS' | Out-File -FilePath '${escapedResultFile}' -Encoding UTF8`,
             '} catch {',
             `    "FAILED: \$(\$_.Exception.Message)" | Out-File -FilePath '${escapedResultFile}' -Encoding UTF8`,
@@ -925,6 +962,25 @@ class Background {
             fs.unlinkSync(touchPath);
         }
         catch { /* ignore */ }
+    }
+    /**
+     * 写入跳转指令文件，注入的 JS 通过轮询 vscbg-jump.json 实现立即切换背景
+     * 直接使用 webview 传入的数组索引，避免路径字符串进行 indexOf 匹配（Windows 反斜杠等编码差异导致 -1）
+     */
+    jumpToMedia(idx) {
+        const config = vscode.workspace.getConfiguration('vscodeBackground');
+        const videoCount = config.get('videos', []).length;
+        if (typeof idx !== 'number' || idx < 0 || idx >= videoCount) {
+            vscode.window.showWarningMessage('跳转失败：索引超出范围，请先保存并重新安装背景后再跳转。');
+            return;
+        }
+        const jumpFile = path.join(this.context.extensionPath, 'vscbg-jump.json');
+        try {
+            fs.writeFileSync(jumpFile, JSON.stringify({ idx, ts: Date.now() }), 'utf-8');
+        }
+        catch (e) {
+            vscode.window.showErrorMessage(`跳转失败: ${e}`);
+        }
     }
     /** 打开背景创意工坊（GitHub Discussions 社区分享） */
     async openWorkshop() {

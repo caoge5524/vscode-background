@@ -8,6 +8,29 @@ All notable changes to the "vscode-background" extension will be documented in t
 
 ## English
 
+### [2.3.0] - 2026-03-05
+
+#### New Features
+
+- **⏩ Jump-to-Media Button in Manage Media**
+  - Each file row in the "Manage Media" panel now has an ⏩ button
+  - Clicking it immediately switches the running background to that media (no restart needed)
+  - Uses a lightweight IPC file `vscbg-jump.json` polled every 500 ms by the injected JS
+  - Requires the background patch to have been (re-)installed with v2.3.0+ to activate polling
+
+#### Bug Fixes
+
+- **Jump button always showed "not saved" error** — root cause: `jumpToMedia` used `Array.indexOf` with string path comparison; Windows backslash serialization caused permanent mismatches. Fixed by sending the numeric array index `i` from the webview instead of the file path; extension now bounds-checks the index against `config.videos.length`, no string matching needed.
+- **`Add Media` command rejected Chinese/Unicode paths** — removed the unnecessary non-ASCII path filter from `addVideos()`; all Unicode file paths are now accepted directly.
+
+#### Technical Notes
+
+- `background.ts`: `jumpToMedia(idx: number)` replaces `jumpToMedia(file: string)`; webview sends `{type:'jumpTo', idx: i}` (was `file: file`); bounds-check `0 <= idx < videoCount`
+- `background.ts`: `addVideos()` — deleted 14-line non-English character guard block
+- `patchGenerator.ts`: `PatchConfig.extensionPath?: string` added; `generateVideoPatch` encodes path to `vscode-file://vscode-app/...` and injects a 500 ms `fetch` polling loop for `vscbg-jump.json`
+
+---
+
 ### [2.2.0] - 2026-03-02
 
 #### New Features
@@ -442,6 +465,22 @@ After:  $appRoot/../../../../../../background-videos
 ---
 
 ## 简体中文
+
+### [2.3.0] - 2026-03-05
+
+#### 新功能
+
+- **〈管理媒体〉中每行新增 ⏩ 跳转按钮**
+  - 点击后立即切换正在运行的背景到该媒体，无需重启 VSCode
+  - 底层通过 `vscbg-jump.json` 文件 IPC，注入的 JS 每 500 ms 轮询一次
+  - 需要已用 v2.3.0+ 重新安装背景补丁才能激活轮询逻辑
+
+#### 缺陷修复
+
+- **跳转按钮始终弹出“尚未保存”错误** — 根本原因：`jumpToMedia` 使用 `indexOf` 对路径字符串做精确匹配，Windows 反斜杠序列化差异导致永远返回 -1。修复方式：webview 直接传递数组索引 `i`，展开端仅做边界检查，完全无需字符串匹配。
+- **“添加媒体”命令拒绝中文/Unicode 路径** — 删除了 `addVideos()` 中多余的非 ASCII 字符过滤逻辑，现在所有 Unicode 文件地址均可直接添加。
+
+---
 
 ### [2.2.0] - 2026-03-02
 
