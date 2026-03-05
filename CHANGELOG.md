@@ -8,6 +8,25 @@ All notable changes to the "vscode-background" extension will be documented in t
 
 ## English
 
+### [2.3.2] - 2026-03-05
+
+#### Bug Fixes
+
+- **⏩ Jump button unresponsive without saving changes first** — root cause: the jump polling code is only injected into `workbench.desktop.main.js` when the patch is applied; if user configured videos but never clicked "Apply", the patch wouldn't exist. Solution: `manageVideos()` now auto-detects missing patch and silently applies it when panel opens (without `enabled` config condition). This ensures the polling loop is in place for the ⏩ button to work immediately, even on first open.
+
+#### Technical Notes
+
+- `background.ts`: `manageVideos()` — removed `config.get<boolean>('enabled', false)` condition from patch auto-apply check; now applies patch for any configured videos regardless of `enabled` state.
+- `patchGenerator.ts`: added timestamp freshness check `Date.now() - d.ts < 15000` to jump polling loop; prevents stale `vscbg-jump.json` from previous sessions being honored after VSCode restart, ensuring playback order remains unchanged.
+
+#### User Experience
+
+- Opening "Manage Media" panel now guarantees ⏩ button works immediately
+- No more "no response" when jumping before saving
+- Restarting VSCode after a jump does not change playback order (15-second freshness window)
+
+---
+
 ### [2.3.1] - 2026-03-05
 
 #### Bug Fixes
@@ -477,6 +496,25 @@ After:  $appRoot/../../../../../../background-videos
 ---
 
 ## 简体中文
+
+### [2.3.2] - 2026-03-05
+
+#### 缺陷修复
+
+- **⏩按钮未保存时无反应** — 根本原因：轮询代码仅在应用补丁时才会注入进 `workbench.desktop.main.js`；如果用户只配置了视频地址但从未点击"应用"，补丁就不存在，⏩ 按钮无法工作。修复方案：`manageVideos()` 现在打开时自动检测并静默应用缺失的补丁（无需用户确认重启提示）。这确保轮询代码已就位，⏩ 按钮首次打开即可使用。
+
+#### 技术说明
+
+- `background.ts`：`manageVideos()` — 对补丁自动应用检查移除了 `config.get<boolean>('enabled', false)` 条件判断；现在只要有配置的视频，无论 `enabled` 状态如何都会应用补丁。
+- `patchGenerator.ts`：轮询代码新增时间戳新鲜度检查 `Date.now() - d.ts < 15000`；防止来自上一个会话的陈旧 `vscbg-jump.json` 在重启后被误认可，确保重启后播放顺序不变（15秒新鲜度窗口）。
+
+#### 用户体验
+
+- 打开《管理媒体》面板时 ⏩ 按钮立即可用
+- 不必先保存再按⏩，第一次就能跳转
+- 跳转后重启 VSCode，播放顺序保持不变（基于 15 秒时间戳检查）
+
+---
 
 ### [2.3.1] - 2026-03-05
 

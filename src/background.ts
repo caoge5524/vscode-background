@@ -192,6 +192,23 @@ export class Background {
             vscode.window.showInformationMessage('当前未配置任何视频或图片。');
             return;
         }
+
+        // 确保补丁已应用（这样⏩跳转功能才能工作，需要轮询代码注入到 workbench.desktop.main.js）
+        const jsPath = this.getJsPath();
+        if (jsPath) {
+            try {
+                const content = fs.readFileSync(jsPath, 'utf-8');
+                const patchType = getPatchType(content);
+                if (patchType === PatchType.None) {
+                    // 补丁不存在，自动应用
+                    console.log('[VSCode Background] Patch missing when opening manage panel, auto-installing...');
+                    await this.install();
+                    return; // install 会提示重启，用户重启后重新打开面板
+                }
+            } catch (e) {
+                console.warn('[VSCode Background] Failed to check patch status:', e);
+            }
+        }
         // 加载并规范化 transitions（长度 = videos.length，含末尾→首帧回环槽）
         let savedTransitions = config.get<string[]>('transitions', []);
         const needed = videos.length;

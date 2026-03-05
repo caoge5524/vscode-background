@@ -290,7 +290,8 @@ function generateVideoPatch(config) {
         }
         const jumpFileUrl = `vscode-file://vscode-app${p}/vscbg-jump.json`;
         // 用短变量名减少注入代码体积；500ms 轮询，cache:'no-store' 防止浏览器缓存旧内容
-        jumpCode = `var _vjTs=0;setInterval(function(){fetch(${JSON.stringify(jumpFileUrl)}+'?_='+Date.now(),{cache:'no-store'}).then(function(r){if(!r.ok)return null;return r.json();}).then(function(d){if(d&&typeof d.ts==='number'&&d.ts!==_vjTs){_vjTs=d.ts;play((d.idx||0)%media.length);}}).catch(function(){});},500);`;
+        // 新增：时间戳新鲜度检查（Date.now()-d.ts<15000），防止重启后旧文件被误读取
+        jumpCode = `var _vjTs=0;setInterval(function(){fetch(${JSON.stringify(jumpFileUrl)}+'?_='+Date.now(),{cache:'no-store'}).then(function(r){if(!r.ok)return null;return r.json();}).then(function(d){if(d&&typeof d.ts==='number'&&d.ts!==_vjTs&&Date.now()-d.ts<15000){_vjTs=d.ts;play((d.idx||0)%media.length);}}).catch(function(){});},500);`;
     }
     return `(function(){
 var media=${JSON.stringify(mediaUrls)};

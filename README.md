@@ -39,6 +39,15 @@ English | [简体中文](./README.zh-CN.md)
 
 ---
 
+## What's New in v2.3.2
+
+**Jump Button Always Works Now**:
+- ✅ **Opening "Manage Media" auto-applies patch** — no more "⏩ not responding" on first try; the panel now auto-detects missing patch and silently applies it (you'll see the prompt to restart, but after restart the ⏩ button is immediately functional)
+- ✅ **Stale jump file prevention** — added 15-second timestamp freshness check to jump polling; ensuring that restarting VSCode after a jump does not carry over the jumped position (playback order is always preserved across restarts)
+- ✅ **Simplified workflows** — no need to save changes before jumping; the ⏩ button works even when browsing without modifications
+
+---
+
 ## What's New in v2.3.0
 
 **Jump Button + Path Fixes**:
